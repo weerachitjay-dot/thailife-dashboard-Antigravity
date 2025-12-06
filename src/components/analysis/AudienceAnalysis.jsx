@@ -108,36 +108,36 @@ const AudienceAnalysis = ({ data, targetCpl }) => {
                 <table className="w-full text-sm text-left">
                     <thead className="bg-slate-50 text-slate-500 uppercase font-bold text-xs border-b border-slate-200">
                         <tr>
-                            <th className="px-6 py-4">Audience / Interest</th>
-                            <th className="px-6 py-4 text-center">Frequency</th>
-                            <th className="px-6 py-4 text-center">CTR %</th>
-                            <th className="px-6 py-4 text-center">CVR %</th>
-                            <th className="px-6 py-4 text-right">Spend</th>
-                            <th className="px-6 py-4 text-right">Leads</th>
-                            <th className="px-6 py-4 text-right">CPL</th>
-                            <th className="px-6 py-4 text-center">Action</th>
+                            <th className="px-4 py-4">Audience / Interest</th>
+                            <th className="px-2 py-4 text-center">Freq</th>
+                            <th className="px-2 py-4 text-center">CTR</th>
+                            <th className="px-2 py-4 text-center">CVR</th>
+                            <th className="px-3 py-4 text-right">Spend</th>
+                            <th className="px-3 py-4 text-right">Leads</th>
+                            <th className="px-3 py-4 text-right">CPL</th>
+                            <th className="px-4 py-4 text-center">Action</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                         {audienceStats.map((row, idx) => (
                             <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
-                                <td className="px-6 py-4 font-bold text-slate-700">
+                                <td className="px-4 py-4 font-bold text-slate-700">
                                     {row.interest}
                                     <div className="text-[10px] uppercase tracking-wider text-indigo-500 font-bold mt-1 bg-indigo-50 inline-block px-1.5 py-0.5 rounded">
                                         {row.category}
                                     </div>
                                 </td>
-                                <td className="px-6 py-4 text-center text-slate-600">{row.frequency.toFixed(2)}</td>
-                                <td className="px-6 py-4 text-center">
+                                <td className="px-2 py-4 text-center text-slate-600">{row.frequency.toFixed(2)}</td>
+                                <td className="px-2 py-4 text-center">
                                     <div className={`inline-block px-2 py-1 rounded ${row.ctr > 1.5 ? 'bg-green-50 text-green-700 font-bold' : row.ctr < 0.5 ? 'bg-red-50 text-red-700' : 'text-slate-600'}`}>
                                         {row.ctr.toFixed(2)}%
                                     </div>
                                 </td>
-                                <td className="px-6 py-4 text-center text-slate-600">{row.cvr.toFixed(2)}%</td>
-                                <td className="px-6 py-4 text-right">฿{row.cost.toLocaleString()}</td>
-                                <td className="px-6 py-4 text-right">{row.leads}</td>
-                                <td className="px-6 py-4 text-right font-bold">฿{row.cpl.toFixed(0)}</td>
-                                <td className="px-6 py-4 text-center">
+                                <td className="px-2 py-4 text-center text-slate-600">{row.cvr.toFixed(2)}%</td>
+                                <td className="px-3 py-4 text-right">฿{row.cost.toLocaleString()}</td>
+                                <td className="px-3 py-4 text-right">{row.leads}</td>
+                                <td className="px-3 py-4 text-right font-bold">฿{row.cpl.toFixed(0)}</td>
+                                <td className="px-4 py-4 text-center">
                                     <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm ${row.rec.color}`}>
                                         {row.rec.icon && <row.rec.icon className="w-3.5 h-3.5" />}
                                         {row.rec.action}

@@ -23,5 +23,10 @@ dist-ssr
 *.sln
 *.sw?
 
+
 # Data (Do not ignore this folder if you want data to be on the website)
 !public/data/
+
+# Environment Variables
+.env
+.env.local
