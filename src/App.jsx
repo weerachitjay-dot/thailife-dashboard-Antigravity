@@ -401,6 +401,18 @@ const CreativeAnalysis = ({ data, targetCpl }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [productFilter, setProductFilter] = useState('All');
 
+  // Auto-Init Date Range
+  useEffect(() => {
+    if (data && data.length > 0) {
+      // Find min and max dates
+      const dates = data.map(d => d.Day).filter(Boolean).sort();
+      if (dates.length > 0) {
+        if (!startDate) setStartDate(dates[0]);
+        if (!endDate) setEndDate(dates[dates.length - 1]);
+      }
+    }
+  }, [data]);
+
   // Extract Unique Products
   const products = useMemo(() => {
     const unique = new Set(data.map(d => d.Product).filter(Boolean));
@@ -582,6 +594,19 @@ const CreativeAnalysis = ({ data, targetCpl }) => {
 // --- Audience Analysis Component ---
 const AudienceAnalysis = ({ data, targetCpl }) => {
   const [productFilter, setProductFilter] = useState('All');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+
+  // Auto-Init Date Range
+  useEffect(() => {
+    if (data && data.length > 0) {
+      const dates = data.map(d => d.Day).filter(Boolean).sort();
+      if (dates.length > 0) {
+        if (!startDate) setStartDate(dates[0]);
+        if (!endDate) setEndDate(dates[dates.length - 1]);
+      }
+    }
+  }, [data]);
 
   // Extract Unique Products
   const products = useMemo(() => {
@@ -595,6 +620,11 @@ const AudienceAnalysis = ({ data, targetCpl }) => {
     data.forEach(row => {
       // Filter by Product
       if (productFilter !== 'All' && row.Product !== productFilter) return;
+
+      // Filter by Date
+      const date = row.Day;
+      if (startDate && new Date(date) < new Date(startDate)) return;
+      if (endDate && new Date(date) > new Date(endDate)) return;
 
       const interest = row.Category_Normalized || 'Unknown';
 
@@ -626,7 +656,7 @@ const AudienceAnalysis = ({ data, targetCpl }) => {
       return { ...item, cpl, ctr, cvr, frequency, rec };
     }).sort((a, b) => b.cost - a.cost);
 
-  }, [data, productFilter, targetCpl]);
+  }, [data, productFilter, startDate, endDate, targetCpl]);
 
   return (
     <div className="space-y-6 animate-fade-in-up">
@@ -639,15 +669,25 @@ const AudienceAnalysis = ({ data, targetCpl }) => {
           </h2>
           <p className="text-slate-500 mt-1">Deep dive into Interest & Behavior performance.</p>
         </div>
-        <div>
-          <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">Filter Product</label>
-          <select
-            className="glass-input px-3 py-2 rounded-xl text-sm min-w-[200px]"
-            value={productFilter}
-            onChange={e => setProductFilter(e.target.value)}
-          >
-            {products.map(p => <option key={p} value={p}>{p}</option>)}
-          </select>
+        <div className="flex flex-wrap gap-4 items-end">
+          <div>
+            <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">Filter Product</label>
+            <select
+              className="glass-input px-3 py-2 rounded-xl text-sm min-w-[200px]"
+              value={productFilter}
+              onChange={e => setProductFilter(e.target.value)}
+            >
+              {products.map(p => <option key={p} value={p}>{p}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">Start Date</label>
+            <input type="date" className="glass-input px-3 py-2 rounded-xl text-sm" value={startDate} onChange={e => setStartDate(e.target.value)} />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">End Date</label>
+            <input type="date" className="glass-input px-3 py-2 rounded-xl text-sm" value={endDate} onChange={e => setEndDate(e.target.value)} />
+          </div>
         </div>
       </div>
 
