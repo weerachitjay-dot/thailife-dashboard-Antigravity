@@ -10,6 +10,7 @@ import UserManagement from './components/auth/UserManagement';
 import LoginPage from './components/auth/LoginPage';
 import { DEFAULT_USERS } from './utils/constants';
 import ErrorBoundary from './components/common/ErrorBoundary';
+import CostProfitPage from './pages/CostProfitPage';
 import './App.css';
 
 // --- Authenticated App Content ---
@@ -45,6 +46,12 @@ const AuthenticatedApp = ({ user, onLogout, users, onAddUser, onDeleteUser }) =>
       {activeTab === 'time-analysis' && (
         <ErrorBoundary>
           <TimeAnalysisPage />
+        </ErrorBoundary>
+      )}
+
+      {activeTab === 'cost-profit' && (
+        <ErrorBoundary>
+          <CostProfitPage />
         </ErrorBoundary>
       )}
 

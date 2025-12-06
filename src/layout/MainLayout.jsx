@@ -79,6 +79,12 @@ const MainLayout = ({ children, user, onLogout, activeTab, setActiveTab }) => {
                             Time Analysis
                         </button>
                         <button
+                            onClick={() => setActiveTab('cost-profit')}
+                            className={`px-4 sm:px-6 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'cost-profit' ? 'bg-teal-600 text-white shadow-md' : 'text-slate-500 hover:text-teal-600'}`}
+                        >
+                            Cost & Profit
+                        </button>
+                        <button
                             onClick={() => setActiveTab('intelligence')}
                             className={`px-4 sm:px-6 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'intelligence' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:text-indigo-600'}`}
                         >
