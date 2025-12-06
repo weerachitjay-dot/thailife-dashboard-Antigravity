@@ -926,8 +926,8 @@ const Dashboard = ({ user, onLogout, users, onAddUser, onDeleteUser }) => {
 
         {activeTab === 'smart-analysis' && (
           <CreativeAnalysis
-            data={processedAppend}
-            targetCpl={overallKPIs.targetCpl}
+            data={appendData}
+            targetCpl={280}
           />
         )}
 
