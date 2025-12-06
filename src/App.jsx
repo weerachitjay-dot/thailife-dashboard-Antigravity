@@ -525,7 +525,7 @@ const CreativeAnalysis = ({ data, targetCpl }) => {
 
 // --- Main Dashboard Component ---
 const Dashboard = ({ user, onLogout, users, onAddUser, onDeleteUser }) => {
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState('dashboard');
   const [dataSource, setDataSource] = useState('Loading...');
   const [rawData, setRawData] = useState({ append: [], sent: [], target: [] });
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -903,10 +903,16 @@ const Dashboard = ({ user, onLogout, users, onAddUser, onDeleteUser }) => {
               Overview Dashboard
             </button>
             <button
+              onClick={() => setActiveTab('smart-analysis')}
+              className={`px-4 sm:px-6 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'smart-analysis' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:text-indigo-600'}`}
+            >
+              Smart Analysis
+            </button>
+            <button
               onClick={() => setActiveTab('intelligence')}
               className={`px-4 sm:px-6 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'intelligence' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:text-indigo-600'}`}
             >
-              Campaign Intelligence
+              Old Intelligence
             </button>
             {user?.role === 'admin' && (
               <button
