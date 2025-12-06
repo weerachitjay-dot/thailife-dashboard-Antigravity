@@ -367,6 +367,13 @@ const CreativeAnalysis = ({ data, targetCpl }) => {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [productFilter, setProductFilter] = useState('All');
+
+  // Extract Unique Products
+  const products = useMemo(() => {
+    const unique = new Set(data.map(d => d.Product).filter(Boolean));
+    return ['All', ...Array.from(unique).sort()];
+  }, [data]);
 
   // Process Data
   const creativeStats = useMemo(() => {
@@ -376,10 +383,14 @@ const CreativeAnalysis = ({ data, targetCpl }) => {
       const rawName = row.Ad_name || row.Creative || 'Unknown';
       const cleanName = extractCreativeName(rawName);
       const date = row.Day; // Assuming 'Day' exists from processing logic
+      const product = row.Product || 'Unknown';
 
       // Check Date Range
       if (startDate && new Date(date) < new Date(startDate)) return;
       if (endDate && new Date(date) > new Date(endDate)) return;
+
+      // Check Product Filter
+      if (productFilter !== 'All' && product !== productFilter) return;
 
       if (!stats[cleanName]) {
         stats[cleanName] = {
@@ -387,7 +398,8 @@ const CreativeAnalysis = ({ data, targetCpl }) => {
           cost: 0,
           leads: 0,
           days: new Set(),
-          rawName: rawName
+          rawName: rawName,
+          product: product
         };
       }
       stats[cleanName].cost += (row.Cost || 0);
@@ -407,7 +419,7 @@ const CreativeAnalysis = ({ data, targetCpl }) => {
         rec
       };
     }).sort((a, b) => b.cost - a.cost); // Sort by Spend by default
-  }, [data, startDate, endDate, targetCpl]);
+  }, [data, startDate, endDate, targetCpl, productFilter]);
 
   const filteredCreatives = creativeStats.filter(c =>
     c.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -426,6 +438,16 @@ const CreativeAnalysis = ({ data, targetCpl }) => {
         </div>
 
         <div className="flex flex-wrap gap-4 items-end">
+          <div>
+            <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">Filter Product</label>
+            <select
+              className="glass-input px-3 py-2 rounded-xl text-sm min-w-[150px]"
+              value={productFilter}
+              onChange={e => setProductFilter(e.target.value)}
+            >
+              {products.map(p => <option key={p} value={p}>{p}</option>)}
+            </select>
+          </div>
           <div>
             <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">Start Date</label>
             <input type="date" className="glass-input px-3 py-2 rounded-xl text-sm" value={startDate} onChange={e => setStartDate(e.target.value)} />
