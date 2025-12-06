@@ -161,9 +161,11 @@ export const parseAdSetInterest = (adSetName) => {
 
 export const processAppendData = (data) => {
     return data.map(row => {
-        const adSetName = row.Ad_set_name || '';
-        const adName = row.Ad_name || '';
-        const campName = row.Campaign_name || '';
+        // Handle case-insensitive or variation in headers from real CSV vs Snippets
+        const adSetName = row.Ad_set_name || row.Ad_Set_Name || '';
+        const adName = row.Ad_name || row.Ad_Name || '';
+        const campName = row.Campaign_name || row.Campaign_Name || '';
+        const rawTime = row.Time || row.Time_of_Day || '';
 
         const { category, interest } = parseAdSetInterest(adSetName);
 
@@ -171,15 +173,22 @@ export const processAppendData = (data) => {
         const partnerMatch = campName.match(/_(.*?)\+/);
         const productMatch = campName.match(/THAILIFE\+(.*?)(?:_|$)/);
 
+        // Parse Time: Handle "HH:mm:ss" OR "HH:mm:ss - HH:mm:ss"
+        // If it's a range "20:00:00 - 20:59:59", we take the first part "20:00:00"
+        let cleanTime = rawTime;
+        if (cleanTime && cleanTime.includes(' - ')) {
+            cleanTime = cleanTime.split(' - ')[0];
+        }
+
         return {
             ...row,
-            Category_Normalized: interest, // Use Interest as the main key for AudienceAnalysis compatibility
-            Category_Group: category,      // Store the high-level category
+            Category_Normalized: interest,
+            Category_Group: category,
             Creative: creativeMatch ? creativeMatch[1] : adName,
             Partner: partnerMatch ? partnerMatch[1].trim() : 'Unknown',
             Product: productMatch ? productMatch[1] : 'Unknown',
             Day: row.Day,
-            Time: row.Time // Ensure Time column is passed through
+            Time: cleanTime // Normalized to HH:mm:ss start time
         };
     });
 };

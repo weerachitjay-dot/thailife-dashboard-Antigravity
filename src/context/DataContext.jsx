@@ -93,20 +93,27 @@ export const DataProvider = ({ children }) => {
                 const parsedAppendTime = parseCSV(appendTimeText);
 
                 setRawData({ append: parsedAppend, sent: parsedSent, target: parsedTarget, appendTime: parsedAppendTime });
-                const processedAppend = processAppendData(parsedAppend);
-                setAppendData(processedAppend);
 
-                // Auto-set Date Range
-                const dates = processedAppend.map(d => d.Day).filter(Boolean).sort();
-                if (dates.length) {
-                    setDateRange({ start: dates[0], end: dates[dates.length - 1] });
+                const processedAppend = processAppendData(parsedAppend);
+                // Process time data earlier to include in date range
+                const processedAppendTime = processAppendData(parsedAppendTime);
+
+                setAppendData(processedAppend);
+                setAppendTimeData(processedAppendTime);
+
+                // Auto-set Date Range (Union of both datasets)
+                const appendDates = processedAppend.map(d => d.Day).filter(Boolean);
+                const timeDates = processedAppendTime.map(d => d.Day).filter(Boolean);
+                const allDates = [...new Set([...appendDates, ...timeDates])].sort();
+
+                if (allDates.length) {
+                    setDateRange({ start: allDates[0], end: allDates[allDates.length - 1] });
                     // Also update campaign config default
-                    setCampaignConfig(prev => ({ ...prev, start: dates[0], end: dates[dates.length - 1] }));
+                    setCampaignConfig(prev => ({ ...prev, start: allDates[0], end: allDates[allDates.length - 1] }));
                 }
 
                 setSentData(processSentData(parsedSent));
                 setTargetData(parsedTarget);
-                setAppendTimeData(processAppendData(parsedAppendTime)); // Re-use processAppendData as it handles numeric conversion
 
             } catch (err) {
                 console.error("Error loading data:", err);

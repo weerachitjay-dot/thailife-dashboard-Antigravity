@@ -9,6 +9,7 @@ import AudienceAnalysis from './components/analysis/AudienceAnalysis';
 import UserManagement from './components/auth/UserManagement';
 import LoginPage from './components/auth/LoginPage';
 import { DEFAULT_USERS } from './utils/constants';
+import ErrorBoundary from './components/common/ErrorBoundary';
 import './App.css';
 
 // --- Authenticated App Content ---
@@ -40,6 +41,12 @@ const AuthenticatedApp = ({ user, onLogout, users, onAddUser, onDeleteUser }) =>
       )}
 
       {activeTab === 'intelligence' && <IntelligencePage />}
+
+      {activeTab === 'time-analysis' && (
+        <ErrorBoundary>
+          <TimeAnalysisPage />
+        </ErrorBoundary>
+      )}
 
       {activeTab === 'users' && user?.role === 'admin' && (
         <UserManagement
