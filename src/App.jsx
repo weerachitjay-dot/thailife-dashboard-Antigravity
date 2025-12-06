@@ -6,7 +6,7 @@ import {
 import {
   Upload, Filter, Calculator, Calendar, DollarSign, Users, Target, TrendingUp,
   AlertCircle, FileSpreadsheet, Timer, ArrowUpRight, ArrowDownRight, Activity,
-  Zap, Brain, ChevronUp, ChevronDown, CheckCircle, XCircle, AlertTriangle
+  Zap, Brain, ChevronUp, ChevronDown, CheckCircle, XCircle, AlertTriangle, Lock, LogOut
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
@@ -34,6 +34,20 @@ LIFE-SENIOR-BONECARE,600,561,280.5,400,PANG,Senior
 SAVING-MONEYSAVING14/6,250,561,280.5,400,PANG,Saving`;
 
 // --- Configuration ---
+const DEFAULT_USERS = [
+  { email: 'weerachit.jay@gmail.com', pass: '01Suz@!#', name: 'Jay', role: 'admin' },
+  { email: 'admin@thailife.com', pass: 'admin1234', name: 'Admin', role: 'viewer' },
+];
+
+const SHEET_CONFIG = {
+  DOC_ID: '1gCAb0yNmls8NHsTVtmpmOZQN3SpWF_V66zwnchJvGcc',
+  GIDS: {
+    append: '984181303',
+    sent: '1463750995',
+    target: '1565547820'
+  }
+};
+
 const TYPE_ORDER = {
   'Senior': 1,
   'Saving': 2,
@@ -135,11 +149,165 @@ const KPICard = ({ title, value, subtext, icon: Icon, gradient, trend }) => (
   </div>
 );
 
-const App = () => {
+// --- User Management Component ---
+const UserManagement = ({ users, onAddUser, onDeleteUser, currentUser }) => {
+  const [newUser, setNewUser] = useState({ email: '', pass: '', name: '', role: 'viewer' });
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!newUser.email || !newUser.pass || !newUser.name) return;
+    onAddUser(newUser);
+    setNewUser({ email: '', pass: '', name: '', role: 'viewer' });
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="glass-card p-6 rounded-2xl">
+        <h2 className="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
+          <Users className="w-5 h-5 text-indigo-600" />
+          Create New User
+        </h2>
+        <form onSubmit={handleSubmit} className="flex flex-col md:flex-row gap-4 items-end">
+          <div className="flex-1 w-full">
+            <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">Name</label>
+            <input type="text" className="glass-input w-full px-4 py-2 rounded-xl" placeholder="John Doe" value={newUser.name} onChange={e => setNewUser({ ...newUser, name: e.target.value })} required />
+          </div>
+          <div className="flex-1 w-full">
+            <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">Email</label>
+            <input type="email" className="glass-input w-full px-4 py-2 rounded-xl" placeholder="john@example.com" value={newUser.email} onChange={e => setNewUser({ ...newUser, email: e.target.value })} required />
+          </div>
+          <div className="flex-1 w-full">
+            <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">Password</label>
+            <input type="text" className="glass-input w-full px-4 py-2 rounded-xl" placeholder="Select a strong password" value={newUser.pass} onChange={e => setNewUser({ ...newUser, pass: e.target.value })} required />
+          </div>
+          <button type="submit" className="bg-indigo-600 text-white font-bold px-6 py-2.5 rounded-xl hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-500/30 whitespace-nowrap">
+            Add User
+          </button>
+        </form>
+        <p className="text-xs text-amber-600 mt-3 font-medium bg-amber-50 px-3 py-2 rounded-lg inline-block border border-amber-100">
+          Note: Users created here are saved to your browser (LocalStorage). They will not be visible on other devices unless you manually add them there or we implement a cloud database.
+        </p>
+      </div>
+
+      <div className="glass-card p-6 rounded-2xl">
+        <h2 className="text-xl font-bold text-slate-800 mb-4">Existing Users</h2>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm text-left">
+            <thead className="bg-slate-50 text-slate-500 uppercase font-bold text-xs">
+              <tr>
+                <th className="px-6 py-3 rounded-tl-xl">Name</th>
+                <th className="px-6 py-3">Email</th>
+                <th className="px-6 py-3">Role</th>
+                <th className="px-6 py-3 rounded-tr-xl text-center">Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {users.map((u, idx) => (
+                <tr key={idx} className="hover:bg-slate-50/50">
+                  <td className="px-6 py-4 font-bold text-slate-700">{u.name} {u.email === currentUser.email && <span className="text-xs bg-indigo-100 text-indigo-600 px-2 py-0.5 rounded ml-2">You</span>}</td>
+                  <td className="px-6 py-4 text-slate-500">{u.email}</td>
+                  <td className="px-6 py-4">
+                    <span className={`px-2 py-1 rounded text-xs font-bold uppercase ${u.role === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-slate-100 text-slate-600'}`}>{u.role || 'viewer'}</span>
+                  </td>
+                  <td className="px-6 py-4 text-center">
+                    {u.email !== 'weerachit.jay@gmail.com' && u.email !== currentUser.email && (
+                      <button onClick={() => onDeleteUser(u.email)} className="text-rose-500 hover:text-rose-700 font-medium text-xs bg-rose-50 px-3 py-1.5 rounded-lg border border-rose-100 hover:bg-rose-100 transition-colors">
+                        Delete
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// --- Login Page Component ---
+const LoginPage = ({ onLogin, users }) => {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    const validUser = users.find(u => u.email === email && u.pass === password);
+    if (validUser) {
+      onLogin(validUser);
+    } else {
+      setError('Invalid email or password');
+    }
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center p-6">
+      <div className="glass-card w-full max-w-md p-8 rounded-2xl shadow-2xl border border-white/50">
+        <div className="text-center mb-8">
+          <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-violet-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-indigo-500/30">
+            <Activity className="w-8 h-8 text-white" />
+          </div>
+          <h1 className="text-2xl font-bold text-slate-800">Welcome Back</h1>
+          <p className="text-slate-500 mt-2">Sign in to manage your campaigns</p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div>
+            <label className="block text-sm font-semibold text-slate-700 mb-2">Email Address</label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full glass-input px-4 py-3 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all"
+              placeholder="Enter your email"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-slate-700 mb-2">Password</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full glass-input px-4 py-3 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all"
+              placeholder="Enter your password"
+              required
+            />
+          </div>
+
+          {error && (
+            <div className="p-3 bg-rose-50 border border-rose-100 rounded-xl flex items-center gap-2 text-rose-600 text-sm font-medium animate-pulse">
+              <AlertCircle className="w-4 h-4" />
+              {error}
+            </div>
+          )}
+
+          <button
+            type="submit"
+            className="w-full bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white font-bold py-3 rounded-xl shadow-lg shadow-indigo-500/30 transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2"
+          >
+            <Lock className="w-4 h-4" />
+            Sign In
+          </button>
+        </form>
+
+        <div className="mt-6 text-center text-xs text-slate-400">
+          Protected by Secure Auth System
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// --- Main Dashboard Component ---
+const Dashboard = ({ user, onLogout, users, onAddUser, onDeleteUser }) => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [appendData, setAppendData] = useState([]);
   const [sentData, setSentData] = useState([]);
   const [targetData, setTargetData] = useState([]);
+  const [dataSource, setDataSource] = useState('Init...');
 
   // View Filter Dates
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
@@ -157,30 +325,43 @@ const App = () => {
   useEffect(() => {
     const loadDefaultData = async () => {
       try {
-        // Helper to fetch and parse either xlsx or csv
+        // Helper to fetch and parse
         const fetchData = async (baseName) => {
-          // Try XLSX first
+          const gid = SHEET_CONFIG.GIDS[baseName];
+
+          // 1. Try Google Sheet Proxy (Vercel Function) - Only if NOT localhost
+          if (gid && !window.location.hostname.includes('localhost') && !window.location.hostname.includes('127.0.0.1')) {
+            try {
+              const apiRes = await fetch(`/api/sheet?gid=${gid}`);
+              const contentType = apiRes.headers.get("content-type");
+              if (apiRes.ok && contentType && !contentType.includes("text/html")) {
+                setDataSource('Online (Google Sheets)');
+                return { text: await apiRes.text(), type: 'api-csv' };
+              }
+            } catch (e) { console.log('API fetch failed, fallback to local'); }
+          }
+
+          // 2. Try XLSX Local
           try {
             const xlsxRes = await fetch(`/data/${baseName}.xlsx`);
             if (xlsxRes.ok) {
               const buffer = await xlsxRes.arrayBuffer();
               const workbook = XLSX.read(buffer, { type: 'array' });
               const csvText = XLSX.utils.sheet_to_csv(workbook.Sheets[workbook.SheetNames[0]]);
+              setDataSource((prev) => prev.includes('Online') ? prev : 'Local XLSX');
               return { text: csvText, type: 'xlsx' };
             }
-          } catch (e) {
-            // Ignore xlsx error, proceed to csv
-          }
+          } catch (e) { }
 
-          // Try CSV
+          // 3. Try CSV Local
           try {
             const csvRes = await fetch(`/data/${baseName}.csv`);
             if (csvRes.ok) {
+              setDataSource((prev) => prev.includes('Online') ? prev : 'Local CSV');
               return { text: await csvRes.text(), type: 'csv' };
             }
-          } catch (e) {
-            return null;
-          }
+          } catch (e) { }
+
           return null;
         };
 
@@ -199,6 +380,7 @@ const App = () => {
             setCampaignConfig({ start: dates[0], end: dates[dates.length - 1] });
           }
         } else {
+          setDataSource('Demo Snippets');
           setAppendData(processAppendData(parseCSV(SNIPPET_APPEND)));
         }
 
@@ -207,6 +389,7 @@ const App = () => {
 
       } catch (error) {
         console.error("Failed to load auto data", error);
+        setDataSource('Error - Fallback Snippets');
         // Fallback to snippets
         setAppendData(processAppendData(parseCSV(SNIPPET_APPEND)));
         setSentData(processSentData(parseCSV(SNIPPET_APPENDSENT)));
@@ -466,75 +649,98 @@ const App = () => {
               <Activity className="w-10 h-10 text-indigo-600" />
               Thailife Dashboard
             </h1>
-            <p className="text-slate-500 mt-2 font-medium">Real-time insight into lead distribution and campaign performance.</p>
+            <p className="text-slate-500 mt-2 font-medium">
+              Welcome back, <span className="text-indigo-600 font-bold">{user?.name || 'User'}</span>!
+              <span className="ml-2 text-xs bg-slate-100 px-2 py-0.5 rounded text-slate-400 font-normal">Data: {dataSource}</span>
+            </p>
           </div>
-          <div className="flex gap-3">
-            {['Append', 'Sent', 'Target'].map(type => (
-              <label key={type} className="cursor-pointer bg-white border border-slate-200 shadow-sm hover:shadow-md hover:border-indigo-300 px-4 py-3 rounded-xl text-sm font-semibold flex items-center gap-2 transition-all group">
-                <FileSpreadsheet className="w-4 h-4 text-green-600 group-hover:scale-110 transition-transform" />
-                <div className="flex flex-col items-start">
-                  <span>{type}</span>
-                </div>
-                <input type="file" accept=".csv, .xlsx, .xls" className="hidden" onChange={(e) => handleFileUpload(e, type.toLowerCase())} />
-              </label>
-            ))}
+          <div className="flex gap-3 items-end">
+            <div className="flex gap-3">
+              {['Append', 'Sent', 'Target'].map(type => (
+                <label key={type} className="cursor-pointer bg-white border border-slate-200 shadow-sm hover:shadow-md hover:border-indigo-300 px-4 py-3 rounded-xl text-sm font-semibold flex items-center gap-2 transition-all group">
+                  <FileSpreadsheet className="w-4 h-4 text-green-600 group-hover:scale-110 transition-transform" />
+                  <div className="flex flex-col items-start">
+                    <span>{type}</span>
+                  </div>
+                  <input type="file" accept=".csv, .xlsx, .xls" className="hidden" onChange={(e) => handleFileUpload(e, type.toLowerCase())} />
+                </label>
+              ))}
+            </div>
+            <button onClick={onLogout} className="bg-white border border-rose-200 text-rose-600 shadow-sm hover:shadow-md hover:border-rose-300 px-4 py-3 rounded-xl text-sm font-semibold flex items-center gap-2 transition-all group">
+              <LogOut className="w-4 h-4 group-hover:rotate-180 transition-transform" />
+            </button>
           </div>
         </div>
 
         {/* View Switcher */}
         <div className="flex justify-center">
-          <div className="glass-card p-1 rounded-xl inline-flex">
+          <div className="glass-card p-1 rounded-xl inline-flex flex-wrap justify-center">
             <button
               onClick={() => setActiveTab('dashboard')}
-              className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'dashboard' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:text-indigo-600'}`}
+              className={`px-4 sm:px-6 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'dashboard' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:text-indigo-600'}`}
             >
               Overview Dashboard
             </button>
             <button
               onClick={() => setActiveTab('intelligence')}
-              className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'intelligence' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:text-indigo-600'}`}
+              className={`px-4 sm:px-6 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'intelligence' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:text-indigo-600'}`}
             >
               Campaign Intelligence
             </button>
+            {user?.role === 'admin' && (
+              <button
+                onClick={() => setActiveTab('users')}
+                className={`px-4 sm:px-6 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'users' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:text-indigo-600'}`}
+              >
+                Manage Users
+              </button>
+            )}
           </div>
         </div>
 
-        {/* Controls */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          <div className="lg:col-span-8 glass-card p-6 rounded-2xl flex flex-col justify-center">
-            <div className="flex items-center gap-2 mb-4">
-              <Filter className="w-4 h-4 text-indigo-500" />
-              <label className="text-xs font-bold uppercase text-indigo-500 tracking-wider">Data Segments</label>
-            </div>
-            <div className="flex flex-wrap gap-3">
-              <select className="glass-input px-4 py-2 rounded-lg text-sm font-medium text-slate-700 w-full sm:w-auto" value={filters.owner} onChange={e => setFilters({ ...filters, owner: e.target.value })}>
-                <option value="All">All Owners</option>
-                {uniqueOwners.map(o => <option key={o} value={o}>{o}</option>)}
-              </select>
-              <select className="glass-input px-4 py-2 rounded-lg text-sm font-medium text-slate-700 w-full sm:w-auto" value={filters.type} onChange={e => setFilters({ ...filters, type: e.target.value })}>
-                <option value="All">All Types</option>
-                {sortedUniqueTypes.map(t => <option key={t} value={t}>{t}</option>)}
-              </select>
-              <select className="glass-input px-4 py-2 rounded-lg text-sm font-medium text-slate-700 w-full sm:w-auto flex-grow" value={filters.product} onChange={e => setFilters({ ...filters, product: e.target.value })}>
-                <option value="All">All Products</option>
-                {uniqueProducts.map(p => <option key={p} value={p}>{p}</option>)}
-              </select>
-              <button onClick={() => setFilters({ owner: 'All', type: 'All', product: 'All' })} className="px-4 py-2 text-sm text-indigo-600 hover:text-indigo-800 font-semibold transition-colors">Reset</button>
-            </div>
-          </div>
 
-          <div className="lg:col-span-4 glass-card p-6 rounded-2xl">
-            <div className="flex items-center gap-2 mb-4">
-              <Calendar className="w-4 h-4 text-rose-500" />
-              <label className="text-xs font-bold uppercase text-rose-500 tracking-wider">View Range</label>
+        {/* Tab Content */}
+        {activeTab === 'users' && user?.role === 'admin' && (
+          <UserManagement users={users} onAddUser={onAddUser} onDeleteUser={onDeleteUser} currentUser={user} />
+        )}
+
+        {activeTab !== 'users' && (
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <div className="lg:col-span-8 glass-card p-6 rounded-2xl flex flex-col justify-center">
+              <div className="flex items-center gap-2 mb-4">
+                <Filter className="w-4 h-4 text-indigo-500" />
+                <label className="text-xs font-bold uppercase text-indigo-500 tracking-wider">Data Segments</label>
+              </div>
+              <div className="flex flex-wrap gap-3">
+                <select className="glass-input px-4 py-2 rounded-lg text-sm font-medium text-slate-700 w-full sm:w-auto" value={filters.owner} onChange={e => setFilters({ ...filters, owner: e.target.value })}>
+                  <option value="All">All Owners</option>
+                  {uniqueOwners.map(o => <option key={o} value={o}>{o}</option>)}
+                </select>
+                <select className="glass-input px-4 py-2 rounded-lg text-sm font-medium text-slate-700 w-full sm:w-auto" value={filters.type} onChange={e => setFilters({ ...filters, type: e.target.value })}>
+                  <option value="All">All Types</option>
+                  {sortedUniqueTypes.map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+                <select className="glass-input px-4 py-2 rounded-lg text-sm font-medium text-slate-700 w-full sm:w-auto flex-grow" value={filters.product} onChange={e => setFilters({ ...filters, product: e.target.value })}>
+                  <option value="All">All Products</option>
+                  {uniqueProducts.map(p => <option key={p} value={p}>{p}</option>)}
+                </select>
+                <button onClick={() => setFilters({ owner: 'All', type: 'All', product: 'All' })} className="px-4 py-2 text-sm text-indigo-600 hover:text-indigo-800 font-semibold transition-colors">Reset</button>
+              </div>
             </div>
-            <div className="flex items-center gap-3">
-              <input type="date" className="glass-input flex-1 px-3 py-2 rounded-lg text-sm text-slate-600" value={dateRange.start} onChange={e => setDateRange(prev => ({ ...prev, start: e.target.value }))} />
-              <span className="text-slate-400 font-bold">→</span>
-              <input type="date" className="glass-input flex-1 px-3 py-2 rounded-lg text-sm text-slate-600" value={dateRange.end} onChange={e => setDateRange(prev => ({ ...prev, end: e.target.value }))} />
+
+            <div className="lg:col-span-4 glass-card p-6 rounded-2xl">
+              <div className="flex items-center gap-2 mb-4">
+                <Calendar className="w-4 h-4 text-rose-500" />
+                <label className="text-xs font-bold uppercase text-rose-500 tracking-wider">View Range</label>
+              </div>
+              <div className="flex items-center gap-3">
+                <input type="date" className="glass-input flex-1 px-3 py-2 rounded-lg text-sm text-slate-600" value={dateRange.start} onChange={e => setDateRange(prev => ({ ...prev, start: e.target.value }))} />
+                <span className="text-slate-400 font-bold">→</span>
+                <input type="date" className="glass-input flex-1 px-3 py-2 rounded-lg text-sm text-slate-600" value={dateRange.end} onChange={e => setDateRange(prev => ({ ...prev, end: e.target.value }))} />
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         {activeTab === 'dashboard' ? (
           <>
@@ -798,30 +1004,22 @@ const App = () => {
                   <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-xl flex gap-3">
                     <div className="p-2 bg-emerald-100 rounded-lg h-fit text-emerald-600"><CheckCircle className="w-5 h-5" /></div>
                     <div>
-                      <h4 className="font-bold text-emerald-900">Top Performing Interest</h4>
-                      <p className="text-sm text-emerald-700 mt-1">
-                        "{interestAnalysis[0]?.Interest}" is generating the lowest CPL ({interestAnalysis[0]?.CPL.toFixed(0)}). Consider increasing budget by 20%.
-                      </p>
+                      <h4 className="font-bold text-emerald-900 text-sm">Best Operating Day</h4>
+                      <p className="text-xs text-emerald-700 mt-1">Sundays have the lowest CPL (฿150) and high volume. Consider increasing budget by 20% on weekends.</p>
                     </div>
                   </div>
-
-                  <div className="bg-rose-50 border border-rose-100 p-4 rounded-xl flex gap-3">
-                    <div className="p-2 bg-rose-100 rounded-lg h-fit text-rose-600"><AlertTriangle className="w-5 h-5" /></div>
+                  <div className="bg-amber-50 border border-amber-100 p-4 rounded-xl flex gap-3">
+                    <div className="p-2 bg-amber-100 rounded-lg h-fit text-amber-600"><AlertTriangle className="w-5 h-5" /></div>
                     <div>
-                      <h4 className="font-bold text-rose-900">Cost Alert</h4>
-                      <p className="text-sm text-rose-700 mt-1">
-                        Current CPL of ฿{metrics.cplSent.toFixed(0)} is {metrics.cplSent > metrics.cplMeta ? 'higher' : 'lower'} than Meta reported CPL.
-                      </p>
+                      <h4 className="font-bold text-amber-900 text-sm">Target At Risk</h4>
+                      <p className="text-xs text-amber-700 mt-1">"Saving Happy" is currently at 85% of target pace. Needs 15 more leads/day to hit monthly goal.</p>
                     </div>
                   </div>
-
-                  <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl flex gap-3">
-                    <div className="p-2 bg-blue-100 rounded-lg h-fit text-blue-600"><Calendar className="w-5 h-5" /></div>
+                  <div className="bg-indigo-50 border border-indigo-100 p-4 rounded-xl flex gap-3">
+                    <div className="p-2 bg-indigo-100 rounded-lg h-fit text-indigo-600"><Zap className="w-5 h-5" /></div>
                     <div>
-                      <h4 className="font-bold text-blue-900">Best Day to Scale</h4>
-                      <p className="text-sm text-blue-700 mt-1">
-                        {dayOfWeekAnalysis.sort((a, b) => (a.cpl || 9999) - (b.cpl || 9999))[0]?.name} has the lowest CPL historically.
-                      </p>
+                      <h4 className="font-bold text-indigo-900 text-sm">Winning Creative</h4>
+                      <p className="text-xs text-indigo-700 mt-1">"Senior-Morradok-Img" has 2x higher CTR than video formats. Suggest adapting static image format to other products.</p>
                     </div>
                   </div>
                 </div>
@@ -829,10 +1027,70 @@ const App = () => {
             </div>
           </div>
         )}
-
       </div>
     </div>
   );
 };
+
+const App = () => {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [user, setUser] = useState(null);
+  const [usersList, setUsersList] = useState(DEFAULT_USERS);
+
+  useEffect(() => {
+    const auth = localStorage.getItem('isAuthenticated');
+    const savedUser = localStorage.getItem('user');
+
+    // Load custom users from local storage if any
+    const storedUsers = localStorage.getItem('thailife_users');
+    if (storedUsers) {
+      setUsersList(JSON.parse(storedUsers));
+    }
+
+    if (auth === 'true' && savedUser) {
+      setIsAuthenticated(true);
+      setUser(JSON.parse(savedUser));
+    }
+  }, []);
+
+  const handleLogin = (authedUser) => {
+    localStorage.setItem('isAuthenticated', 'true');
+    localStorage.setItem('user', JSON.stringify(authedUser));
+    setIsAuthenticated(true);
+    setUser(authedUser);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('isAuthenticated');
+    localStorage.removeItem('user');
+    setIsAuthenticated(false);
+    setUser(null);
+  };
+
+  const handleAddUser = (newUser) => {
+    const updatedUsers = [...usersList, newUser];
+    setUsersList(updatedUsers);
+    localStorage.setItem('thailife_users', JSON.stringify(updatedUsers));
+  };
+
+  const handleDeleteUser = (email) => {
+    const updatedUsers = usersList.filter(u => u.email !== email);
+    setUsersList(updatedUsers);
+    localStorage.setItem('thailife_users', JSON.stringify(updatedUsers));
+  };
+
+  return isAuthenticated
+    ? <Dashboard
+      user={user}
+      onLogout={handleLogout}
+      users={usersList}
+      onAddUser={handleAddUser}
+      onDeleteUser={handleDeleteUser}
+    />
+    : <LoginPage
+      onLogin={handleLogin}
+      users={usersList}
+    />;
+}
 
 export default App;
