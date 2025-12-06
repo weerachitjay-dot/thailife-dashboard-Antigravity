@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import {
-    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell
+    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell, PieChart, Pie
 } from 'recharts';
 import { Clock, Sun, Moon, Calendar } from 'lucide-react';
 import { useData } from '../context/DataContext';
@@ -124,24 +124,57 @@ const TimeAnalysisPage = () => {
                 </div>
             </div>
 
-            {/* Day of Week Chart */}
-            <div className="glass-card p-6 rounded-2xl">
-                <h3 className="text-lg font-bold text-slate-800 mb-6">Leads by Day of Week (Sun - Sat)</h3>
-                <div className="h-[400px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={dayOfWeekStats} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                            <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b' }} />
-                            <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b' }} />
-                            <Tooltip
-                                cursor={{ fill: '#f1f5f9' }}
-                                contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                            />
-                            <Legend />
-                            <Bar dataKey="Daily_Leads" name="Daily (09:00-17:59)" stackId="a" fill="#6366f1" radius={[0, 0, 4, 4]} />
-                            <Bar dataKey="Carry_Leads" name="Carry (18:00-08:59)" stackId="a" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
-                        </BarChart>
-                    </ResponsiveContainer>
+            {/* Charts Section */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Daily vs Carry Donut Chart */}
+                <div className="glass-card p-6 rounded-2xl">
+                    <h3 className="text-lg font-bold text-slate-800 mb-6">Lead Distribution</h3>
+                    <div className="h-[300px] flex items-center justify-center">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                                <Pie
+                                    data={[
+                                        { name: 'Daily', value: totals.daily, color: '#6366f1' },
+                                        { name: 'Carry', value: totals.carry, color: '#8b5cf6' }
+                                    ]}
+                                    innerRadius={60}
+                                    outerRadius={80}
+                                    paddingAngle={5}
+                                    dataKey="value"
+                                >
+                                    {[
+                                        { name: 'Daily', value: totals.daily, color: '#6366f1' },
+                                        { name: 'Carry', value: totals.carry, color: '#8b5cf6' }
+                                    ].map((entry, index) => (
+                                        <Cell key={`cell-${index}`} fill={entry.color} />
+                                    ))}
+                                </Pie>
+                                <Tooltip />
+                                <Legend verticalAlign="bottom" height={36} />
+                            </PieChart>
+                        </ResponsiveContainer>
+                    </div>
+                </div>
+
+                {/* Day of Week Chart */}
+                <div className="glass-card p-6 rounded-2xl lg:col-span-2">
+                    <h3 className="text-lg font-bold text-slate-800 mb-6">Leads by Day of Week (Sun - Sat)</h3>
+                    <div className="h-[300px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={dayOfWeekStats} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b' }} />
+                                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b' }} />
+                                <Tooltip
+                                    cursor={{ fill: '#f1f5f9' }}
+                                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                                />
+                                <Legend />
+                                <Bar dataKey="Daily_Leads" name="Daily (09:00-17:59)" stackId="a" fill="#6366f1" radius={[0, 0, 4, 4]} />
+                                <Bar dataKey="Carry_Leads" name="Carry (18:00-08:59)" stackId="a" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
                 </div>
             </div>
 

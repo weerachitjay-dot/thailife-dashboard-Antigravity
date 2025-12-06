@@ -178,7 +178,8 @@ export const processAppendData = (data) => {
             Creative: creativeMatch ? creativeMatch[1] : adName,
             Partner: partnerMatch ? partnerMatch[1].trim() : 'Unknown',
             Product: productMatch ? productMatch[1] : 'Unknown',
-            Day: row.Day
+            Day: row.Day,
+            Time: row.Time // Ensure Time column is passed through
         };
     });
 };
