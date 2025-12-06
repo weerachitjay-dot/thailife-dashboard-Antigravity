@@ -7,13 +7,12 @@ import { useData } from '../context/DataContext';
 import { normalizeProduct } from '../utils/formatters';
 
 const CostProfitPage = () => {
-    const { appendData, targetData, filters, dateRange } = useData();
+    const { appendData, targetData, sentData, filters, dateRange } = useData();
 
-    // --- LOGIC: Merge Target + Actuals ---
+    // --- LOGIC: Merge Target + Actuals + Sent ---
     const productStats = useMemo(() => {
         // 1. Group Actuals by Product
         const actualsMap = {};
-        const allDates = new Set();
 
         appendData.forEach(row => {
             if (!row.Product || !row.Day) return;
@@ -26,7 +25,7 @@ const CostProfitPage = () => {
 
             // Initialize if new
             if (!actualsMap[normalized]) {
-                actualsMap[normalized] = { leads: 0, cost: 0, distinctDays: new Set() };
+                actualsMap[normalized] = { leads: 0, cost: 0 };
             }
 
             const cost = parseFloat(row.Cost) || 0;
@@ -34,17 +33,30 @@ const CostProfitPage = () => {
 
             actualsMap[normalized].leads += leads;
             actualsMap[normalized].cost += cost;
-            actualsMap[normalized].distinctDays.add(row.Day);
-            allDates.add(row.Day);
         });
 
-        // 2. Iterate Targets to build final list
+        // 2. Group Sent Data by Product (MATCHING DASHBOARD LOGIC)
+        const sentMap = {};
+        sentData.forEach(row => {
+            if (!row.Product_Normalized || !row.Day) return;
+            if (dateRange.start && row.Day < dateRange.start) return;
+            if (dateRange.end && row.Day > dateRange.end) return;
+
+            const normalized = normalizeProduct(row.Product_Normalized);
+            if (!sentMap[normalized]) sentMap[normalized] = 0;
+            sentMap[normalized] += parseInt(row.Leads_Sent) || 0;
+        });
+
+        // 3. Iterate Targets to build final list
         const stats = targetData.map(target => {
             const prodName = target.Product_Target; // Assuming this is normalized in target.csv or consistent
-            const actuals = actualsMap[prodName] || { leads: 0, cost: 0, distinctDays: new Set() };
+            const actuals = actualsMap[prodName] || { leads: 0, cost: 0 };
+            const actualLeadsSent = sentMap[prodName] || 0; // Use Actual Sent Data
 
-            const targetPrice = parseFloat(target.Target_SellPrice) || 0; // The "Value" of one lead?
-            const estRevenue = actuals.leads * targetPrice;
+            const targetPrice = parseFloat(target.Target_SellPrice) || 0;
+
+            // Revenue based on ACTUAL Leads Sent (matching Dashboard)
+            const estRevenue = actualLeadsSent * targetPrice;
             const profit = estRevenue - actuals.cost;
             const roi = actuals.cost > 0 ? ((estRevenue - actuals.cost) / actuals.cost) * 100 : 0;
 
@@ -57,6 +69,7 @@ const CostProfitPage = () => {
                 owner: target.OWNER,
                 type: target.TYPE,
                 leads: actuals.leads,
+                leadsSent: actualLeadsSent, // Using Actual Sent
                 cost: actuals.cost,
                 targetPrice,
                 estRevenue,
@@ -67,14 +80,14 @@ const CostProfitPage = () => {
 
         // Sort by Profit Descending
         return stats.sort((a, b) => b.profit - a.profit);
-    }, [appendData, targetData, filters, dateRange]);
+    }, [appendData, targetData, sentData, filters, dateRange]);
 
     // --- AGGREGATION: Totals & Forecast ---
     const totals = useMemo(() => {
-        let cost = 0, revenue = 0, profit = 0, leads = 0;
+        let cost = 0, revenue = 0, profit = 0, leadsSent = 0;
         productStats.forEach(p => {
             cost += p.cost;
-            leads += p.leads;
+            leadsSent += p.leadsSent;
             revenue += p.estRevenue;
             profit += p.profit;
         });
@@ -104,7 +117,7 @@ const CostProfitPage = () => {
         const avgDailyProfit = profit / daysElapsed;
         const forecast = avgDailyProfit * daysInRange;
 
-        return { cost, revenue, profit, forecast, daysElapsed, daysInRange, leads };
+        return { cost, revenue, profit, forecast, daysElapsed, daysInRange, leadsSent };
     }, [productStats, appendData, dateRange]);
 
     return (
@@ -119,9 +132,9 @@ const CostProfitPage = () => {
                 <div className="glass-card p-6 rounded-2xl flex flex-col gap-2 border-l-4 border-l-orange-500">
                     <div className="flex items-center gap-3 text-orange-600">
                         <TrendingUp className="w-5 h-5" />
-                        <span className="font-bold uppercase text-xs tracking-wide">Total Leads</span>
+                        <span className="font-bold uppercase text-xs tracking-wide">Total Leads Sent</span>
                     </div>
-                    <h3 className="text-3xl font-black text-slate-900">{totals.leads.toLocaleString()}</h3>
+                    <h3 className="text-3xl font-black text-slate-900">{totals.leadsSent.toLocaleString()}</h3>
                 </div>
                 <div className="glass-card p-6 rounded-2xl flex flex-col gap-2 border-l-4 border-l-slate-400">
                     <div className="flex items-center gap-3 text-slate-600">
