@@ -1,10 +1,10 @@
 export const SHEET_CONFIG = {
     DOC_ID: '1gCAb0yNmls8NHsTVtmpmOZQN3SpWF_V66zwnchJvGcc',
     GIDS: {
-        append: '0',        // Main Append Data
-        sent: '166687723',  // Sent Leads
-        target: '1378682006', // Targets
-        append_time: '273518328' // Time Analysis
+        append: '984181303',        // Main Append Data
+        sent: '1463750995',         // Sent Leads (Appendsent)
+        target: '1565547820',       // Targets
+        append_time: '273518328'    // Time Analysis
     }
 };
 
