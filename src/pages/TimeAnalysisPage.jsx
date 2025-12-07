@@ -3,8 +3,9 @@ import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell, PieChart, Pie,
     ComposedChart, Line, LabelList, ReferenceLine
 } from 'recharts';
-import { Clock, Sun, Moon, Calendar, TrendingUp, Wallet, ArrowUpDown, RotateCcw } from 'lucide-react';
+import { Clock, Sun, Moon, Calendar, TrendingUp, Wallet, ArrowUpDown, RotateCcw, Download } from 'lucide-react';
 import { useSortableData } from '../hooks/useSortableData';
+import { useExcelExport } from '../hooks/useExcelExport';
 import { useData } from '../context/DataContext';
 import { DAY_NAMES, normalizeProduct } from '../utils/formatters';
 
@@ -129,6 +130,19 @@ const TimeAnalysisPage = () => {
     }, [processedData]);
 
     const { items: sortedDayStats, requestSort, sortConfig, resetSort } = useSortableData(dayOfWeekStats);
+    const { exportToExcel } = useExcelExport();
+
+    const handleExport = () => {
+        const columns = [
+            { key: 'name', label: 'Day' },
+            { key: 'Daily_Leads', label: 'Daily Leads' },
+            { key: 'Carry_Leads', label: 'Carry Leads' },
+            { key: 'Total_Leads', label: 'Total Leads' },
+            { key: 'Total_Cost', label: 'Cost' },
+            { key: 'CPL', label: 'CPL', formatter: (val) => parseFloat(val.toFixed(2)) }
+        ];
+        exportToExcel(sortedDayStats, 'Time_Analysis_Day_Breakdown', columns);
+    };
 
     // --- AGGREGATION: Totals ---
     const totals = useMemo(() => {
@@ -451,6 +465,13 @@ const TimeAnalysisPage = () => {
                             Reset
                         </button>
                     )}
+                    <button
+                        onClick={handleExport}
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors border border-indigo-100 ml-2"
+                    >
+                        <Download className="w-3.5 h-3.5" />
+                        Export
+                    </button>
                 </div>
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm">

@@ -2,8 +2,9 @@ import React, { useMemo } from 'react';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, Cell
 } from 'recharts';
-import { BadgeDollarSign, TrendingUp, Wallet, Calculator, ArrowUpDown, RotateCcw } from 'lucide-react';
+import { BadgeDollarSign, TrendingUp, Wallet, Calculator, ArrowUpDown, RotateCcw, Download } from 'lucide-react';
 import { useSortableData } from '../hooks/useSortableData';
+import { useExcelExport } from '../hooks/useExcelExport';
 import { useData } from '../context/DataContext';
 import { normalizeProduct } from '../utils/formatters';
 
@@ -84,6 +85,21 @@ const CostProfitPage = () => {
     }, [appendData, targetData, sentData, filters, dateRange]);
 
     const { items: sortedProductStats, requestSort, sortConfig, resetSort } = useSortableData(productStats);
+    const { exportToExcel } = useExcelExport();
+
+    const handleExport = () => {
+        const columns = [
+            { key: 'product', label: 'Product' },
+            { key: 'owner', label: 'Owner' },
+            { key: 'type', label: 'Type' },
+            { key: 'leadsSent', label: 'Leads Sent' },
+            { key: 'estRevenue', label: 'Est. Revenue' },
+            { key: 'cost', label: 'Actual Cost' },
+            { key: 'profit', label: 'Net Profit' },
+            { key: 'roi', label: 'ROI (%)', formatter: (val) => parseFloat(val.toFixed(2)) }
+        ];
+        exportToExcel(sortedProductStats, 'Product_Profitability', columns);
+    };
 
     // --- AGGREGATION: Totals & Forecast ---
     const totals = useMemo(() => {
@@ -219,6 +235,13 @@ const CostProfitPage = () => {
                             Reset
                         </button>
                     )}
+                    <button
+                        onClick={handleExport}
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-teal-600 bg-teal-50 hover:bg-teal-100 rounded-lg transition-colors border border-teal-100 ml-2"
+                    >
+                        <Download className="w-3.5 h-3.5" />
+                        Export
+                    </button>
                 </div>
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm">
@@ -227,7 +250,7 @@ const CostProfitPage = () => {
                                 {[
                                     { label: 'Product', key: 'product', align: 'left' },
                                     { label: 'Owner', key: 'owner', align: 'center' },
-                                    { label: 'Leads', key: 'leads', align: 'right' },
+                                    { label: 'Leads Sent', key: 'leadsSent', align: 'right' },
                                     { label: 'Est. Revenue', key: 'estRevenue', align: 'right' },
                                     { label: 'Actual Cost', key: 'cost', align: 'right' },
                                     { label: 'Net Profit', key: 'profit', align: 'right' },
@@ -251,7 +274,7 @@ const CostProfitPage = () => {
                                 <tr key={idx} className="hover:bg-slate-50/80 transition-colors">
                                     <td className="px-6 py-4 font-bold text-slate-800">{row.product}</td>
                                     <td className="px-6 py-4 text-center text-slate-500 text-xs font-bold bg-slate-100 rounded-full mx-auto w-fit px-2 py-0.5 mt-3 block">{row.owner}</td>
-                                    <td className="px-6 py-4 text-right font-medium text-slate-700">{row.leads.toLocaleString()}</td>
+                                    <td className="px-6 py-4 text-right font-medium text-slate-700">{row.leadsSent.toLocaleString()}</td>
                                     <td className="px-6 py-4 text-right font-bold text-blue-700">฿{row.estRevenue.toLocaleString()}</td>
                                     <td className="px-6 py-4 text-right font-medium text-slate-600">฿{row.cost.toLocaleString()}</td>
                                     <td className={`px-6 py-4 text-right font-black ${row.profit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>

@@ -3,8 +3,9 @@ import {
     BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
     Cell
 } from 'recharts';
-import { Target, TrendingUp, DollarSign, Calculator, Timer, ArrowUpDown, RotateCcw } from 'lucide-react';
+import { Target, TrendingUp, DollarSign, Calculator, Timer, ArrowUpDown, RotateCcw, Download } from 'lucide-react';
 import { useSortableData } from '../hooks/useSortableData';
+import { useExcelExport } from '../hooks/useExcelExport';
 import KPICard from '../components/kpi/KPICard';
 import { useData } from '../context/DataContext';
 import { TYPE_ORDER } from '../utils/formatters';
@@ -168,6 +169,34 @@ const DashboardOverview = () => {
     }, [mergedData]);
 
     const { items: sortedPerformanceData, requestSort, sortConfig, resetSort } = useSortableData(performanceData);
+    const { exportToExcel } = useExcelExport();
+
+    const handleExportForecast = () => {
+        const columns = [
+            { key: 'TYPE', label: 'Type' },
+            { key: 'OWNER', label: 'Owner' },
+            { key: 'Product_Target', label: 'Product' },
+            { key: 'Target_Lead_Sent', label: 'Target' },
+            { key: 'actual', label: 'Actual' },
+            { key: 'forecastTotal', label: 'Forecast', formatter: (val) => Math.round(val) },
+            { key: 'forecastPercent', label: 'Status (%)', formatter: (val) => parseFloat(val.toFixed(2)) }
+        ];
+        exportToExcel(forecastData.rows, 'Forecast_Projections', columns);
+    };
+
+    const handleExportPerformance = () => {
+        const columns = [
+            { key: 'Product', label: 'Product' },
+            { key: 'Cost', label: 'Cost' },
+            { key: 'Leads', label: 'FB Leads' },
+            { key: 'Leads_Sent', label: 'Sent Leads' },
+            { key: 'Target', label: 'Target' },
+            { key: 'Percent', label: 'Progress (%)', formatter: (val) => parseFloat(val.toFixed(2)) },
+            { key: 'CPL_FB', label: 'CPL (FB)', formatter: (val) => parseFloat(val.toFixed(2)) },
+            { key: 'CPL_Sent', label: 'CPL (Sent)', formatter: (val) => parseFloat(val.toFixed(2)) }
+        ];
+        exportToExcel(sortedPerformanceData, 'Performance_Detail', columns);
+    };
 
     return (
         <>
@@ -189,11 +218,17 @@ const DashboardOverview = () => {
                         <h3 className="text-xl font-bold text-slate-800">Forecast & Projections</h3>
                         <div className="flex items-center gap-2 mt-2 text-sm text-slate-500">
                             <span>Based on run rate from</span>
-                            <input type="date" className="bg-white/50 border border-slate-200 rounded px-2 py-0.5 text-xs text-indigo-600 font-bold" value={campaignConfig.start} onChange={e => setCampaignConfig(prev => ({ ...prev, start: e.target.value }))} />
                             <span>to</span>
                             <input type="date" className="bg-white/50 border border-slate-200 rounded px-2 py-0.5 text-xs text-indigo-600 font-bold" value={campaignConfig.end} onChange={e => setCampaignConfig(prev => ({ ...prev, end: e.target.value }))} />
                         </div>
                     </div>
+                    <button
+                        onClick={handleExportForecast}
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors border border-indigo-100 relative z-10"
+                    >
+                        <Download className="w-3.5 h-3.5" />
+                        Export
+                    </button>
                 </div>
 
                 <div className="overflow-x-auto relative z-10 rounded-xl border border-white/40 shadow-sm">
@@ -310,6 +345,13 @@ const DashboardOverview = () => {
                             Reset
                         </button>
                     )}
+                    <button
+                        onClick={handleExportPerformance}
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors border border-indigo-100 ml-2"
+                    >
+                        <Download className="w-3.5 h-3.5" />
+                        Export
+                    </button>
                 </div>
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm">

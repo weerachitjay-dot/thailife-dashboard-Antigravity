@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Layers, ArrowUpDown, RotateCcw } from 'lucide-react';
+import { Layers, ArrowUpDown, RotateCcw, Download } from 'lucide-react';
 import { getAudienceRecommendation } from '../../utils/formatters';
 import { useSortableData } from '../../hooks/useSortableData';
+import { useExcelExport } from '../../hooks/useExcelExport';
 
 const AudienceAnalysis = ({ data, targetCpl }) => {
     const [productFilter, setProductFilter] = useState('All');
@@ -72,6 +73,23 @@ const AudienceAnalysis = ({ data, targetCpl }) => {
     }, [data, productFilter, startDate, endDate, targetCpl]);
 
     const { items: sortedAudienceStats, requestSort, sortConfig, resetSort } = useSortableData(audienceStats);
+    const { exportToExcel } = useExcelExport();
+
+    const handleExport = () => {
+        const columns = [
+            { key: 'interest', label: 'Audience / Interest' },
+            { key: 'category', label: 'Category' },
+            { key: 'frequency', label: 'Freq', formatter: (val) => parseFloat(val.toFixed(2)) },
+            { key: 'ctr', label: 'CTR (%)', formatter: (val) => parseFloat(val.toFixed(2)) },
+            { key: 'cvr', label: 'CVR (%)', formatter: (val) => parseFloat(val.toFixed(2)) },
+            { key: 'cost', label: 'Spend' },
+            { key: 'leads', label: 'Leads' },
+            { key: 'cpl', label: 'CPL', formatter: (val) => parseFloat(val.toFixed(2)) },
+            { key: 'rec', label: 'Action', formatter: (val) => val.action },
+            { key: 'rec', label: 'Reason', formatter: (val) => val.reason }
+        ];
+        exportToExcel(sortedAudienceStats, 'Audience_Analysis', columns);
+    };
 
     return (
         <div className="space-y-6 animate-fade-in-up">
@@ -119,6 +137,13 @@ const AudienceAnalysis = ({ data, targetCpl }) => {
                             Reset Sort
                         </button>
                     )}
+                    <button
+                        onClick={handleExport}
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-indigo-600 bg-white hover:text-indigo-800 rounded-lg transition-colors border border-slate-200 shadow-sm ml-2"
+                    >
+                        <Download className="w-3.5 h-3.5" />
+                        Export
+                    </button>
                 </div>
                 <table className="w-full text-sm text-left">
                     <thead className="bg-slate-50 text-slate-500 uppercase font-bold text-xs border-b border-slate-200">
