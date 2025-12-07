@@ -12,7 +12,8 @@ export const SHEET_CONFIG = {
 export const DEFAULT_USERS = [
     { id: 2, username: 'weerachit.jay', pass: import.meta.env.VITE_ADMIN_PASS || 'admin_fallback_change_me', name: 'Weerachit Jay', role: 'admin' },
     { id: 3, username: 'demo', pass: 'demo', name: 'Demo User', role: 'viewer' },
-    { id: 4, username: '660452', pass: import.meta.env.VITE_USER_660452_PASS || 'user_fallback_change_me', name: 'User 660452', role: 'viewer' }
+    { id: 4, username: '660452', pass: import.meta.env.VITE_USER_660452_PASS || 'user_fallback_change_me', name: 'User 660452', role: 'viewer' },
+    { id: 999, username: 'tester', pass: '123456', name: 'Tester', role: 'admin' }
 ];
 
 export const SNIPPET_APPEND = `Day,Product,Ad Name,Impressions,Cost,Leads,Meta_leads

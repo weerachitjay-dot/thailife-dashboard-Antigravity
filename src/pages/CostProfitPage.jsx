@@ -2,7 +2,8 @@ import React, { useMemo } from 'react';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, Cell
 } from 'recharts';
-import { BadgeDollarSign, TrendingUp, Wallet, Calculator } from 'lucide-react';
+import { BadgeDollarSign, TrendingUp, Wallet, Calculator, ArrowUpDown, RotateCcw } from 'lucide-react';
+import { useSortableData } from '../hooks/useSortableData';
 import { useData } from '../context/DataContext';
 import { normalizeProduct } from '../utils/formatters';
 
@@ -81,6 +82,8 @@ const CostProfitPage = () => {
         // Sort by Profit Descending
         return stats.sort((a, b) => b.profit - a.profit);
     }, [appendData, targetData, sentData, filters, dateRange]);
+
+    const { items: sortedProductStats, requestSort, sortConfig, resetSort } = useSortableData(productStats);
 
     // --- AGGREGATION: Totals & Forecast ---
     const totals = useMemo(() => {
@@ -205,24 +208,46 @@ const CostProfitPage = () => {
 
             {/* Detail Table */}
             <div className="glass-card rounded-2xl overflow-hidden border border-slate-200/60 shadow-sm">
-                <div className="p-6 border-b border-slate-100 bg-white/50">
+                <div className="p-6 border-b border-slate-100 bg-white/50 flex justify-between items-center">
                     <h3 className="text-lg font-bold text-slate-900">Product Profitability Breakdown</h3>
+                    {sortConfig && (
+                        <button
+                            onClick={resetSort}
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-500 bg-slate-100/50 hover:bg-white hover:text-indigo-600 rounded-lg transition-colors border border-transparent hover:border-indigo-100"
+                        >
+                            <RotateCcw className="w-3.5 h-3.5" />
+                            Reset
+                        </button>
+                    )}
                 </div>
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                         <thead className="bg-slate-50 text-xs uppercase text-slate-700 font-bold border-b border-slate-200">
                             <tr>
-                                <th className="px-6 py-4 text-left tracking-wider">Product</th>
-                                <th className="px-6 py-4 text-center tracking-wider">Owner</th>
-                                <th className="px-6 py-4 text-right tracking-wider">Leads</th>
-                                <th className="px-6 py-4 text-right tracking-wider text-blue-700">Est. Revenue</th>
-                                <th className="px-6 py-4 text-right tracking-wider text-slate-600">Actual Cost</th>
-                                <th className="px-6 py-4 text-right tracking-wider text-emerald-700">Net Profit</th>
-                                <th className="px-6 py-4 text-right tracking-wider">ROI</th>
+                                {[
+                                    { label: 'Product', key: 'product', align: 'left' },
+                                    { label: 'Owner', key: 'owner', align: 'center' },
+                                    { label: 'Leads', key: 'leads', align: 'right' },
+                                    { label: 'Est. Revenue', key: 'estRevenue', align: 'right' },
+                                    { label: 'Actual Cost', key: 'cost', align: 'right' },
+                                    { label: 'Net Profit', key: 'profit', align: 'right' },
+                                    { label: 'ROI', key: 'roi', align: 'right' }
+                                ].map((col) => (
+                                    <th
+                                        key={col.key}
+                                        onClick={() => requestSort(col.key)}
+                                        className={`px-6 py-4 cursor-pointer hover:bg-indigo-50/50 transition-colors group ${col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left'}`}
+                                    >
+                                        <div className={`flex items-center gap-1.5 ${col.align === 'right' ? 'justify-end' : col.align === 'center' ? 'justify-center' : 'justify-start'}`}>
+                                            {col.label}
+                                            <ArrowUpDown className={`w-3 h-3 text-slate-300 group-hover:text-indigo-400 transition-colors ${sortConfig?.key === col.key ? 'text-indigo-600' : ''}`} />
+                                        </div>
+                                    </th>
+                                ))}
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 bg-white/60">
-                            {productStats.map((row, idx) => (
+                            {sortedProductStats.map((row, idx) => (
                                 <tr key={idx} className="hover:bg-slate-50/80 transition-colors">
                                     <td className="px-6 py-4 font-bold text-slate-800">{row.product}</td>
                                     <td className="px-6 py-4 text-center text-slate-500 text-xs font-bold bg-slate-100 rounded-full mx-auto w-fit px-2 py-0.5 mt-3 block">{row.owner}</td>

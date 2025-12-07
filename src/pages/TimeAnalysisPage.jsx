@@ -1,13 +1,16 @@
 import React, { useMemo } from 'react';
 import {
-    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell, PieChart, Pie
+    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell, PieChart, Pie,
+    ComposedChart, Line, LabelList, ReferenceLine
 } from 'recharts';
-import { Clock, Sun, Moon, Calendar, TrendingUp, Wallet } from 'lucide-react';
+import { Clock, Sun, Moon, Calendar, TrendingUp, Wallet, ArrowUpDown, RotateCcw } from 'lucide-react';
+import { useSortableData } from '../hooks/useSortableData';
 import { useData } from '../context/DataContext';
 import { DAY_NAMES, normalizeProduct } from '../utils/formatters';
 
 const TimeAnalysisPage = () => {
     const { appendTimeData, targetData, filters, dateRange } = useData();
+    const [hourlyFilter, setHourlyFilter] = React.useState('All'); // 'All', 'Daily', 'Carry'
 
     // --- LOGIC: Classify Daily vs Carry ---
     // Daily: 09:00 - 17:59
@@ -50,6 +53,44 @@ const TimeAnalysisPage = () => {
         }).filter(Boolean);
     }, [appendTimeData, targetData, filters, dateRange]);
 
+    // --- AGGREGATION: By Hour ---
+    const hourlyStats = useMemo(() => {
+        const hours = Array(24).fill(0).map((_, i) => ({
+            hour: i,
+            name: `${String(i).padStart(2, '0')}:00`,
+            Leads: 0,
+            Cost: 0
+        }));
+
+        processedData.forEach(d => {
+            if (!d.Time) return;
+            // Parse Time (Expected standard HH:mm:ss or HH:mm)
+            const [h] = d.Time.split(':').map(Number);
+            if (!isNaN(h) && h >= 0 && h < 24) {
+                const cost = parseFloat(d.Cost) || 0;
+                const leads = parseInt(d.Leads) || 0;
+                hours[h].Cost += cost;
+                hours[h].Leads += leads;
+            }
+        });
+
+        return hours.map(h => ({
+            ...h,
+            CPL: h.Leads > 0 ? h.Cost / h.Leads : 0
+        }));
+    }, [processedData]);
+
+    const filteredHourlyStats = useMemo(() => {
+        if (hourlyFilter === 'All') return hourlyStats;
+        if (hourlyFilter === 'Daily') {
+            return hourlyStats.filter(h => h.hour >= 9 && h.hour < 18);
+        }
+        if (hourlyFilter === 'Carry') {
+            return hourlyStats.filter(h => h.hour >= 18 || h.hour < 9);
+        }
+        return hourlyStats;
+    }, [hourlyStats, hourlyFilter]);
+
     // --- AGGREGATION: By Day of Week ---
     const dayOfWeekStats = useMemo(() => {
         const days = Array(7).fill(0).map((_, i) => ({
@@ -86,6 +127,8 @@ const TimeAnalysisPage = () => {
             Carry_CPL: d.Carry_Leads > 0 ? d.Carry_Cost / d.Carry_Leads : 0
         }));
     }, [processedData]);
+
+    const { items: sortedDayStats, requestSort, sortConfig, resetSort } = useSortableData(dayOfWeekStats);
 
     // --- AGGREGATION: Totals ---
     const totals = useMemo(() => {
@@ -269,25 +312,173 @@ const TimeAnalysisPage = () => {
 
             </div>
 
+            {/* --- NEW: Advanced Combo Chart (Leads vs CPL) --- */}
+            <div className="glass-card p-6 rounded-2xl border border-slate-200/60 shadow-sm">
+                <div className="flex flex-col md:flex-row justify-between items-center mb-6 border-b border-slate-100 pb-2">
+                    <h3 className="text-lg font-bold text-slate-900">Leads vs Cost Efficiency (Daily Breakdown)</h3>
+                    <div className="flex gap-4 text-xs font-bold">
+                        <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-full bg-slate-200"></div>Leads Volume</div>
+                        <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-full bg-indigo-500"></div>Daily CPL</div>
+                        <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-full bg-violet-500"></div>Carry CPL</div>
+                    </div>
+                </div>
+                <div className="h-[400px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <ComposedChart data={dayOfWeekStats} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                            <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontWeight: 600, dy: 10 }} />
+
+                            {/* Left Y-Axis: Leads */}
+                            <YAxis yAxisId="left" orientation="left" axisLine={false} tickLine={false} tick={{ fill: '#64748b' }} label={{ value: 'Leads', angle: -90, position: 'insideLeft', fill: '#94a3b8' }} />
+
+                            {/* Right Y-Axis: CPL */}
+                            <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false} tick={{ fill: '#64748b' }} tickFormatter={(val) => `฿${val}`} />
+
+                            <Tooltip
+                                contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                                formatter={(value, name) => {
+                                    if (name === 'Total Leads') return [value, name];
+                                    return [`฿${parseFloat(value).toFixed(0)}`, name];
+                                }}
+                            />
+
+                            {/* Leads Bar */}
+                            <Bar yAxisId="left" dataKey="Total_Leads" name="Total Leads" fill="#e2e8f0" radius={[8, 8, 8, 8]} barSize={40}>
+                                <LabelList dataKey="Total_Leads" position="top" fill="#475569" fontSize={12} fontWeight="bold" formatter={(val) => val > 0 ? val : ''} />
+                            </Bar>
+
+                            {/* CPL Lines */}
+                            <Line yAxisId="right" type="monotone" dataKey="Daily_CPL" name="Daily CPL" stroke="#6366f1" strokeWidth={3} dot={{ r: 4, strokeWidth: 2, fill: '#fff' }} activeDot={{ r: 6 }} />
+                            <Line yAxisId="right" type="monotone" dataKey="Carry_CPL" name="Carry CPL" stroke="#8b5cf6" strokeWidth={3} dot={{ r: 4, strokeWidth: 2, fill: '#fff' }} activeDot={{ r: 6 }} />
+                        </ComposedChart>
+                    </ResponsiveContainer>
+                </div>
+            </div>
+
+            {/* --- NEW: Hourly Breakdown Chart --- */}
+            <div className="glass-card p-6 rounded-2xl border border-slate-200/60 shadow-sm">
+                <div className="flex flex-col md:flex-row justify-between items-center mb-6 border-b border-slate-100 pb-2">
+                    <div className="flex items-center gap-4">
+                        <h3 className="text-lg font-bold text-slate-900">Hourly Efficiency Analysis (24H)</h3>
+                        <div className="flex bg-slate-100 p-1 rounded-lg">
+                            {['All', 'Daily', 'Carry'].map(filter => (
+                                <button
+                                    key={filter}
+                                    onClick={() => setHourlyFilter(filter)}
+                                    className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${hourlyFilter === filter ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                                >
+                                    {filter}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                    <div className="flex gap-4 text-xs font-bold">
+                        <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-full bg-slate-200"></div>Leads Volume</div>
+                        <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-full bg-emerald-500"></div>CPL Trend</div>
+                        {(hourlyFilter === 'All' || hourlyFilter === 'Daily') && <div className="flex items-center gap-1.5"><div className="w-3 h-0.5 bg-indigo-500 border-t border-dashed"></div>Avg Daily CPL</div>}
+                        {(hourlyFilter === 'All' || hourlyFilter === 'Carry') && <div className="flex items-center gap-1.5"><div className="w-3 h-0.5 bg-violet-500 border-t border-dashed"></div>Avg Carry CPL</div>}
+                    </div>
+                </div>
+                <div className="h-[400px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <ComposedChart data={filteredHourlyStats} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+                            <defs>
+                                <linearGradient id="splitColor" x1="0" y1="0" x2="1" y2="0">
+                                    {hourlyFilter === 'All' ? (
+                                        <>
+                                            <stop offset="0%" stopColor="#7c3aed" />
+                                            <stop offset="37.5%" stopColor="#7c3aed" />
+                                            <stop offset="37.5%" stopColor="#4f46e5" />
+                                            <stop offset="75%" stopColor="#4f46e5" />
+                                            <stop offset="75%" stopColor="#7c3aed" />
+                                            <stop offset="100%" stopColor="#7c3aed" />
+                                        </>
+                                    ) : hourlyFilter === 'Daily' ? (
+                                        <stop offset="0%" stopColor="#4f46e5" />
+                                    ) : (
+                                        <stop offset="0%" stopColor="#7c3aed" />
+                                    )}
+                                </linearGradient>
+                            </defs>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                            <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 11, dy: 10 }} interval={0} />
+
+                            {/* Left Y-Axis: Leads */}
+                            <YAxis yAxisId="left" orientation="left" axisLine={false} tickLine={false} tick={{ fill: '#64748b' }} label={{ value: 'Leads', angle: -90, position: 'insideLeft', fill: '#94a3b8' }} />
+
+                            {/* Right Y-Axis: CPL */}
+                            <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false} tick={{ fill: '#64748b' }} tickFormatter={(val) => `฿${val}`} />
+
+                            <Tooltip
+                                contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                                labelStyle={{ fontWeight: 'bold', color: '#1e293b' }}
+                                formatter={(value, name) => {
+                                    if (name === 'Leads') return [value, name];
+                                    return [`฿${parseFloat(value).toFixed(0)}`, name];
+                                }}
+                            />
+
+                            {/* Reference Lines */}
+                            {(hourlyFilter === 'All' || hourlyFilter === 'Daily') && totals.dailyCpl > 0 && (
+                                <ReferenceLine yAxisId="right" y={totals.dailyCpl} stroke="#4f46e5" strokeDasharray="3 3" strokeOpacity={0.5} label={{ value: 'Daily Avg', position: 'right', fill: '#4f46e5', fontSize: 10, opacity: 0.7 }} />
+                            )}
+                            {(hourlyFilter === 'All' || hourlyFilter === 'Carry') && totals.carryCpl > 0 && (
+                                <ReferenceLine yAxisId="right" y={totals.carryCpl} stroke="#7c3aed" strokeDasharray="3 3" strokeOpacity={0.5} label={{ value: 'Carry Avg', position: 'right', fill: '#7c3aed', fontSize: 10, opacity: 0.7 }} />
+                            )}
+
+                            {/* Leads Bar */}
+                            <Bar yAxisId="left" dataKey="Leads" name="Leads" fill="#e2e8f0" radius={[4, 4, 4, 4]} barSize={20}>
+                                <LabelList dataKey="Leads" position="top" fill="#475569" fontSize={10} fontWeight="bold" formatter={(val) => val > 0 ? val : ''} />
+                            </Bar>
+
+                            {/* CPL Line with Gradient */}
+                            <Line yAxisId="right" type="monotone" dataKey="CPL" name="CPL" stroke="url(#splitColor)" strokeWidth={3} dot={{ r: 3, strokeWidth: 2, fill: '#fff' }} activeDot={{ r: 5 }} />
+                        </ComposedChart>
+                    </ResponsiveContainer>
+                </div>
+            </div>
+
             {/* Detail Table */}
             <div className="glass-card rounded-2xl overflow-hidden border border-slate-200/60 shadow-sm">
-                <div className="p-6 border-b border-slate-100 bg-white/50">
+                <div className="p-6 border-b border-slate-100 bg-white/50 flex justify-between items-center">
                     <h3 className="text-lg font-bold text-slate-900">Day Breakdown</h3>
+                    {sortConfig && (
+                        <button
+                            onClick={resetSort}
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-500 bg-slate-100/50 hover:bg-white hover:text-indigo-600 rounded-lg transition-colors border border-transparent hover:border-indigo-100"
+                        >
+                            <RotateCcw className="w-3.5 h-3.5" />
+                            Reset
+                        </button>
+                    )}
                 </div>
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                         <thead className="bg-slate-50 text-xs uppercase text-slate-700 font-bold border-b border-slate-200">
                             <tr>
-                                <th className="px-6 py-4 text-left tracking-wider">Day</th>
-                                <th className="px-6 py-4 text-right text-indigo-700 tracking-wider">Daily Leads</th>
-                                <th className="px-6 py-4 text-right text-violet-700 tracking-wider">Carry Leads</th>
-                                <th className="px-6 py-4 text-right text-slate-900 tracking-wider">Total Leads</th>
-                                <th className="px-6 py-4 text-right text-slate-600 tracking-wider">Cost</th>
-                                <th className="px-6 py-4 text-right text-slate-900 tracking-wider">CPL</th>
+                                {[
+                                    { label: 'Day', key: 'name', align: 'left' },
+                                    { label: 'Daily Leads', key: 'Daily_Leads', align: 'right' },
+                                    { label: 'Carry Leads', key: 'Carry_Leads', align: 'right' },
+                                    { label: 'Total Leads', key: 'Total_Leads', align: 'right' },
+                                    { label: 'Cost', key: 'Total_Cost', align: 'right' },
+                                    { label: 'CPL', key: 'CPL', align: 'right' }
+                                ].map((col) => (
+                                    <th
+                                        key={col.key}
+                                        onClick={() => requestSort(col.key)}
+                                        className={`px-6 py-4 cursor-pointer hover:bg-indigo-50/50 transition-colors group ${col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left'}`}
+                                    >
+                                        <div className={`flex items-center gap-1.5 ${col.align === 'right' ? 'justify-end' : col.align === 'center' ? 'justify-center' : 'justify-start'}`}>
+                                            {col.label}
+                                            <ArrowUpDown className={`w-3 h-3 text-slate-300 group-hover:text-indigo-400 transition-colors ${sortConfig?.key === col.key ? 'text-indigo-600' : ''}`} />
+                                        </div>
+                                    </th>
+                                ))}
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 bg-white/60">
-                            {dayOfWeekStats.map((row, idx) => (
+                            {sortedDayStats.map((row, idx) => (
                                 <tr key={idx} className="hover:bg-indigo-50/50 transition-colors">
                                     <td className="px-6 py-4 font-bold text-slate-800">{row.name}</td>
                                     <td className="px-6 py-4 text-right font-bold text-indigo-700">{row.Daily_Leads}</td>

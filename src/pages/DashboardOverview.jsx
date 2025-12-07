@@ -3,7 +3,8 @@ import {
     BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
     Cell
 } from 'recharts';
-import { Target, TrendingUp, DollarSign, Calculator, Timer } from 'lucide-react';
+import { Target, TrendingUp, DollarSign, Calculator, Timer, ArrowUpDown, RotateCcw } from 'lucide-react';
+import { useSortableData } from '../hooks/useSortableData';
 import KPICard from '../components/kpi/KPICard';
 import { useData } from '../context/DataContext';
 import { TYPE_ORDER } from '../utils/formatters';
@@ -150,6 +151,24 @@ const DashboardOverview = () => {
         });
     }, [mergedData]);
 
+    const performanceData = useMemo(() => {
+        return Object.values(mergedData.reduce((acc, curr) => {
+            const key = `${curr.Product}`;
+            if (!acc[key]) acc[key] = { ...curr, Cost: 0, Leads_Sent: 0, Leads: 0, Target: curr.Target_Lead_Sent };
+            acc[key].Cost += curr.Cost;
+            acc[key].Leads_Sent += curr.Leads_Sent;
+            acc[key].Leads += curr.Leads;
+            return acc;
+        }, {})).map(row => ({
+            ...row,
+            CPL_Sent: row.Leads_Sent ? row.Cost / row.Leads_Sent : 0,
+            CPL_FB: row.Leads ? row.Cost / row.Leads : 0,
+            Percent: row.Target ? (row.Leads_Sent / row.Target) * 100 : 0
+        }));
+    }, [mergedData]);
+
+    const { items: sortedPerformanceData, requestSort, sortConfig, resetSort } = useSortableData(performanceData);
+
     return (
         <>
             {/* KPIs */}
@@ -280,56 +299,65 @@ const DashboardOverview = () => {
 
             {/* Detailed Table */}
             <div className="glass-card rounded-2xl overflow-hidden">
-                <div className="p-6 border-b border-white/30 bg-white/40">
+                <div className="p-6 border-b border-white/30 bg-white/40 flex justify-between items-center">
                     <h3 className="text-lg font-bold text-slate-800">Performance Detail</h3>
+                    {sortConfig && (
+                        <button
+                            onClick={resetSort}
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-500 bg-slate-100/50 hover:bg-white hover:text-indigo-600 rounded-lg transition-colors border border-transparent hover:border-indigo-100"
+                        >
+                            <RotateCcw className="w-3.5 h-3.5" />
+                            Reset
+                        </button>
+                    )}
                 </div>
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                         <thead className="bg-slate-50/50 text-xs uppercase text-slate-500 font-semibold border-b border-white/50">
                             <tr>
-                                <th className="px-6 py-4 text-left">Product</th>
-                                <th className="px-6 py-4 text-right">Cost</th>
-                                <th className="px-6 py-4 text-right text-indigo-600">FB Leads</th>
-                                <th className="px-6 py-4 text-right text-orange-600">Sent Leads</th>
-                                <th className="px-6 py-4 text-right">Target</th>
-                                <th className="px-6 py-4 text-center">Progress</th>
-                                <th className="px-6 py-4 text-right text-indigo-600">CPL (FB)</th>
-                                <th className="px-6 py-4 text-right text-orange-600">CPL (Sent)</th>
+                                {[
+                                    { label: 'Product', key: 'Product', align: 'left' },
+                                    { label: 'Cost', key: 'Cost', align: 'right' },
+                                    { label: 'FB Leads', key: 'Leads', align: 'right' },
+                                    { label: 'Sent Leads', key: 'Leads_Sent', align: 'right' },
+                                    { label: 'Target', key: 'Target', align: 'right' },
+                                    { label: 'Progress', key: 'Percent', align: 'center' },
+                                    { label: 'CPL (FB)', key: 'CPL_FB', align: 'right' },
+                                    { label: 'CPL (Sent)', key: 'CPL_Sent', align: 'right' }
+                                ].map((col) => (
+                                    <th
+                                        key={col.key}
+                                        onClick={() => requestSort(col.key)}
+                                        className={`px-6 py-4 cursor-pointer hover:bg-indigo-50/50 transition-colors group ${col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left'}`}
+                                    >
+                                        <div className={`flex items-center gap-1.5 ${col.align === 'right' ? 'justify-end' : col.align === 'center' ? 'justify-center' : 'justify-start'}`}>
+                                            {col.label}
+                                            <ArrowUpDown className={`w-3 h-3 text-slate-300 group-hover:text-indigo-400 transition-colors ${sortConfig?.key === col.key ? 'text-indigo-600' : ''}`} />
+                                        </div>
+                                    </th>
+                                ))}
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 bg-white/40">
-                            {Object.values(mergedData.reduce((acc, curr) => {
-                                const key = `${curr.Product}`;
-                                if (!acc[key]) acc[key] = { ...curr, Cost: 0, Leads_Sent: 0, Leads: 0, Target: curr.Target_Lead_Sent };
-                                acc[key].Cost += curr.Cost;
-                                acc[key].Leads_Sent += curr.Leads_Sent;
-                                acc[key].Leads += curr.Leads; // Aggregate FB Leads
-                                return acc;
-                            }, {}))
-                                .map((row, idx) => {
-                                    const cplSent = row.Leads_Sent ? row.Cost / row.Leads_Sent : 0;
-                                    const cplFb = row.Leads ? row.Cost / row.Leads : 0;
-                                    const percent = row.Target ? (row.Leads_Sent / row.Target) * 100 : 0;
-                                    return (
-                                        <tr key={idx} className="hover:bg-white/60 transition-colors">
-                                            <td className="px-6 py-4 font-bold text-slate-700">{row.Product}</td>
-                                            <td className="px-6 py-4 text-right text-slate-500">฿{row.Cost.toLocaleString()}</td>
-                                            <td className="px-6 py-4 text-right font-medium text-indigo-600">{row.Leads.toLocaleString()}</td>
-                                            <td className="px-6 py-4 text-right font-medium text-orange-600">{row.Leads_Sent.toLocaleString()}</td>
-                                            <td className="px-6 py-4 text-right text-slate-400">{row.Target.toLocaleString()}</td>
-                                            <td className="px-6 py-4">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="flex-1 h-2 bg-slate-200 rounded-full overflow-hidden">
-                                                        <div className={`h-full rounded-full ${percent >= 100 ? 'bg-emerald-500' : 'bg-indigo-500'}`} style={{ width: `${Math.min(percent, 100)}%` }}></div>
-                                                    </div>
-                                                    <span className="text-xs font-bold w-9">{percent.toFixed(0)}%</span>
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4 text-right font-medium text-indigo-600">฿{cplFb.toFixed(0)}</td>
-                                            <td className="px-6 py-4 text-right font-medium text-orange-600">฿{cplSent.toFixed(0)}</td>
-                                        </tr>
-                                    );
-                                })}
+                            {sortedPerformanceData.map((row, idx) => (
+                                <tr key={idx} className="hover:bg-white/60 transition-colors">
+                                    <td className="px-6 py-4 font-bold text-slate-700">{row.Product}</td>
+                                    <td className="px-6 py-4 text-right text-slate-500">฿{row.Cost.toLocaleString()}</td>
+                                    <td className="px-6 py-4 text-right font-medium text-indigo-600">{row.Leads.toLocaleString()}</td>
+                                    <td className="px-6 py-4 text-right font-medium text-orange-600">{row.Leads_Sent.toLocaleString()}</td>
+                                    <td className="px-6 py-4 text-right text-slate-400">{row.Target.toLocaleString()}</td>
+                                    <td className="px-6 py-4">
+                                        <div className="flex items-center gap-3">
+                                            <div className="flex-1 h-2 bg-slate-200 rounded-full overflow-hidden">
+                                                <div className={`h-full rounded-full ${row.Percent >= 100 ? 'bg-emerald-500' : 'bg-indigo-500'}`} style={{ width: `${Math.min(row.Percent, 100)}%` }}></div>
+                                            </div>
+                                            <span className="text-xs font-bold w-9">{row.Percent.toFixed(0)}%</span>
+                                        </div>
+                                    </td>
+                                    <td className="px-6 py-4 text-right font-medium text-indigo-600">฿{row.CPL_FB.toFixed(0)}</td>
+                                    <td className="px-6 py-4 text-right font-medium text-orange-600">฿{row.CPL_Sent.toFixed(0)}</td>
+                                </tr>
+                            ))}
                         </tbody>
                     </table>
                 </div>
