@@ -4,7 +4,8 @@ export const SHEET_CONFIG = {
         append: '984181303',        // Main Append Data
         sent: '1463750995',         // Sent Leads (Appendsent)
         target: '1565547820',       // Targets
-        append_time: '273518328'    // Time Analysis
+        append_time: '273518328',   // Time Analysis
+        telesales: '476294586'      // Telesales Data (Leads_TL)
     }
 };
 

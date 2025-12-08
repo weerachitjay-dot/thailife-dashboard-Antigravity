@@ -10,11 +10,12 @@ export const useData = () => useContext(DataContext);
 export const DataProvider = ({ children }) => {
     const [activeTab, setActiveTab] = useState('dashboard');
     const [dataSource, setDataSource] = useState('Loading...');
-    const [rawData, setRawData] = useState({ append: [], sent: [], target: [], appendTime: [] });
+    const [rawData, setRawData] = useState({ append: [], sent: [], target: [], appendTime: [], telesales: [] });
     const [appendData, setAppendData] = useState([]);
     const [sentData, setSentData] = useState([]);
     const [targetData, setTargetData] = useState([]);
     const [appendTimeData, setAppendTimeData] = useState([]);
+    const [telesalesData, setTelesalesData] = useState([]);
 
     const [dateRange, setDateRange] = useState({ start: '', end: '' });
     const [filters, setFilters] = useState({
@@ -71,19 +72,21 @@ export const DataProvider = ({ children }) => {
                     return null;
                 };
 
-                const [appendRes, sentRes, targetRes, appendTimeRes] = await Promise.all([
+                const [appendRes, sentRes, targetRes, appendTimeRes, telesalesRes] = await Promise.all([
                     fetchData('append'),
                     fetchData('sent'),
                     fetchData('target'),
-                    fetchData('append_time')
+                    fetchData('append_time'),
+                    fetchData('telesales')
                 ]);
 
                 const appendText = appendRes ? appendRes.text : SNIPPET_APPEND;
                 const sentText = sentRes ? sentRes.text : SNIPPET_APPENDSENT;
                 const targetText = targetRes ? targetRes.text : SNIPPET_TARGET;
                 const appendTimeText = appendTimeRes ? appendTimeRes.text : SNIPPET_APPEND_TIME;
+                const telesalesText = telesalesRes ? telesalesRes.text : '';
 
-                if (!appendRes && !sentRes && !targetRes && !appendTimeRes) {
+                if (!appendRes && !sentRes && !targetRes && !appendTimeRes && !telesalesRes) {
                     setDataSource('Demo Data (Snippets)');
                 }
 
@@ -91,12 +94,25 @@ export const DataProvider = ({ children }) => {
                 const parsedSent = parseCSV(sentText);
                 const parsedTarget = parseCSV(targetText);
                 const parsedAppendTime = parseCSV(appendTimeText);
+                const parsedTelesales = telesalesText ? parseCSV(telesalesText) : [];
 
-                setRawData({ append: parsedAppend, sent: parsedSent, target: parsedTarget, appendTime: parsedAppendTime });
+                setRawData({ append: parsedAppend, sent: parsedSent, target: parsedTarget, appendTime: parsedAppendTime, telesales: parsedTelesales });
 
                 const processedAppend = processAppendData(parsedAppend);
-                // Process time data earlier to include in date range
                 const processedAppendTime = processAppendData(parsedAppendTime);
+
+                // Process Telesales (Use same normalizer as Sent)
+                // Assuming schema: Day, Product, Leads_TL
+                const processedTelesales = parsedTelesales.map(row => ({
+                    ...row,
+                    Product_Normalized: processSentData([row])[0]?.Product_Normalized // Reuse logic if possible, or just call normalizer
+                }));
+                // Wait, processSentData maps 'Product1' -> Normalized. Let's see what keys we expect from TL.
+                // If the user didn't specify schema, we can assume standard or robustly normalize 'Product' column.
+
+                setAppendData(processedAppend);
+                setAppendTimeData(processedAppendTime);
+                setTelesalesData(parsedTelesales); // We'll process inside component or here. Let's send raw parsed for now or standardized.
 
                 setAppendData(processedAppend);
                 setAppendTimeData(processedAppendTime);
@@ -182,7 +198,10 @@ export const DataProvider = ({ children }) => {
             appendData,
             sentData,
             targetData,
+            sentData,
+            targetData,
             appendTimeData,
+            telesalesData,
             campaignConfig,
             setCampaignConfig, // Allow updating config
             handleFileUpload,

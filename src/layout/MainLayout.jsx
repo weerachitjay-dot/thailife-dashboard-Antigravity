@@ -85,6 +85,12 @@ const MainLayout = ({ children, user, onLogout, activeTab, setActiveTab }) => {
                             Cost & Profit
                         </button>
                         <button
+                            onClick={() => setActiveTab('product-master')}
+                            className={`px-4 sm:px-6 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'product-master' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:text-indigo-600'}`}
+                        >
+                            Product Master
+                        </button>
+                        <button
                             onClick={() => setActiveTab('intelligence')}
                             className={`px-4 sm:px-6 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'intelligence' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:text-indigo-600'}`}
                         >
@@ -102,7 +108,7 @@ const MainLayout = ({ children, user, onLogout, activeTab, setActiveTab }) => {
                 </div>
 
                 {/* Global Filter Bar (Conditionally Rendered) */}
-                {activeTab !== 'users' && activeTab !== 'smart-analysis' && (
+                {activeTab !== 'users' && activeTab !== 'smart-analysis' && activeTab !== 'product-master' && (
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                         <div className="lg:col-span-8 glass-card p-6 rounded-2xl flex flex-col justify-center">
                             <div className="flex items-center gap-2 mb-4">
