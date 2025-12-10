@@ -159,6 +159,47 @@ export const parseAdSetInterest = (adSetName) => {
     return { category: 'Other', interest: clean };
 };
 
+export const extractProductFromCampaign = (campaignName) => {
+    if (!campaignName) return 'Unknown';
+
+    // 1. Split by Underscore to find the segment with THAILIFE
+    const parts = campaignName.split('_');
+    const thailifeIndex = parts.findIndex(p => p.includes('THAILIFE+'));
+
+    if (thailifeIndex === -1) return 'Unknown';
+
+    const thailifePart = parts[thailifeIndex]; // e.g. "THAILIFE+LIFE" or "THAILIFE+LIFE-SENIOR..."
+
+    // 2. Logic to extract Raw Product string
+    let rawProduct = '';
+
+    // Check if the part is JUST the partner prefix (e.g. THAILIFE+LIFE) 
+    // This implies the product is in the NEXT segment (e.g. ..._THAILIFE+LIFE_SAVING-HAPPY_...)
+    // A simple heuristic: if it doesn't contain a hyphen *after* the plus, or is very short.
+    // Actually, user example: THAILIFE+LIFE (ends there).
+
+    // Let's strip "THAILIFE+" first
+    const cleanPart = thailifePart.replace(/.*?THAILIFE\+/, ''); // "LIFE" or "LIFE-SENIOR..."
+
+    // If cleanPart has no hyphens (e.g. "LIFE"), it's likely just the partner, so take next part.
+    if (!cleanPart.includes('-')) {
+        if (parts[thailifeIndex + 1]) {
+            return parts[thailifeIndex + 1]; // Return the next token as product
+        }
+        return cleanPart; // Fallback: return "LIFE" if nothing follows (shouldn't happen in valid data)
+    }
+
+    // If it DOES have hyphens (e.g. "LIFE-SENIOR-MORRADOK"), the product is the suffix.
+    // We assume the structure is PARTNER-PRODUCT. Partner is usually the first bit.
+    // "LIFE-SENIOR-MORRADOK" -> "SENIOR-MORRADOK"
+    const firstHyphen = cleanPart.indexOf('-');
+    if (firstHyphen !== -1) {
+        return cleanPart.substring(firstHyphen + 1);
+    }
+
+    return cleanPart;
+};
+
 export const processAppendData = (data) => {
     return data.map(row => {
         // Handle case-insensitive or variation in headers from real CSV vs Snippets
@@ -168,13 +209,16 @@ export const processAppendData = (data) => {
         const rawTime = row.Time || row.Time_of_Day || '';
 
         const { category, interest } = parseAdSetInterest(adSetName);
-
         const creativeMatch = adName.match(/_(.*)/);
+
+        // Use new robust extraction
+        const rawProduct = extractProductFromCampaign(campName);
+        const productNormalized = normalizeProduct(rawProduct);
+
+        // Partner extraction (heuristic: keep existing simple logic or improve later)
         const partnerMatch = campName.match(/_(.*?)\+/);
-        const productMatch = campName.match(/THAILIFE\+(.*?)(?:_|$)/);
 
         // Parse Time: Handle "HH:mm:ss" OR "HH:mm:ss - HH:mm:ss"
-        // If it's a range "20:00:00 - 20:59:59", we take the first part "20:00:00"
         let cleanTime = rawTime;
         if (cleanTime && cleanTime.includes(' - ')) {
             cleanTime = cleanTime.split(' - ')[0];
@@ -186,9 +230,10 @@ export const processAppendData = (data) => {
             Category_Group: category,
             Creative: creativeMatch ? creativeMatch[1] : adName,
             Partner: partnerMatch ? partnerMatch[1].trim() : 'Unknown',
-            Product: productMatch ? productMatch[1] : 'Unknown',
+            Product: productNormalized, // Using normalized product now
+            Product_Raw: rawProduct,    // Keep raw for debugging if needed
             Day: row.Day,
-            Time: cleanTime // Normalized to HH:mm:ss start time
+            Time: cleanTime
         };
     });
 };
