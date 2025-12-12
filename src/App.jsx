@@ -13,6 +13,7 @@ import OptimizationLabPage from './pages/OptimizationLabPage';
 import ErrorBoundary from './components/common/ErrorBoundary';
 import CostProfitPage from './pages/CostProfitPage';
 import ProductMasterPage from './pages/ProductMasterPage';
+import LeadsAnalysisPage from './pages/LeadsAnalysisPage';
 import './App.css';
 
 // --- Authenticated App Content ---
@@ -66,6 +67,12 @@ const AuthenticatedApp = ({ user, onLogout, users, onAddUser, onDeleteUser }) =>
       {activeTab === 'product-master' && (
         <ErrorBoundary>
           <ProductMasterPage />
+        </ErrorBoundary>
+      )}
+
+      {activeTab === 'leads-analysis' && (
+        <ErrorBoundary>
+          <LeadsAnalysisPage />
         </ErrorBoundary>
       )}
 

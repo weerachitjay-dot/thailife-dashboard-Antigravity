@@ -1,5 +1,5 @@
 import React from 'react';
-import { Activity, FileSpreadsheet, LogOut, Filter, Calendar, LayoutDashboard, Database, BarChart2, PieChart, Users, Settings, Table, Clock, FlaskConical } from 'lucide-react';
+import { Activity, FileSpreadsheet, LogOut, Filter, Calendar, LayoutDashboard, Database, BarChart2, PieChart, Users, Settings, Table, Clock, FlaskConical, Layers } from 'lucide-react';
 import { useData } from '../context/DataContext';
 import DateRangePicker from '../components/common/DateRangePicker';
 
@@ -14,6 +14,7 @@ const MainLayout = ({ children, user, onLogout, activeTab, setActiveTab }) => {
         { id: 'intelligence', label: 'Intelligence Hub', icon: Database }, // Renamed from Raw Data
         { id: 'time-analysis', label: 'Time Analysis', icon: Clock },
         { id: 'cost-profit', label: 'Cost & Profit', icon: Table },
+        { id: 'leads-analysis', label: 'Leads Analysis', icon: Layers }, // NEW
         { id: 'product-master', label: 'Product Master', icon: Table, className: 'text-xs' }, // Smaller text if needed
     ];
     // Extract unique options for filters if needed, but for now we can rely on what we had.
