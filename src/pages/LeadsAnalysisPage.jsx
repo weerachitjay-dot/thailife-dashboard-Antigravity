@@ -157,10 +157,11 @@ const LeadsAnalysisPage = () => {
     };
 
     const formatValue = (val) => {
+        const num = Math.round(val);
         if (viewMode.includes('CPL') || viewMode.includes('COST')) {
-            return `฿${val.toFixed(0)}`;
+            return `฿${num.toLocaleString()}`;
         }
-        return val.toLocaleString();
+        return num.toLocaleString();
     };
 
     const getViewTitle = () => {
