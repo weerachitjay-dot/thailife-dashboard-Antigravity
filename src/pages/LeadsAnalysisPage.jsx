@@ -3,9 +3,10 @@ import { useData } from '../context/DataContext';
 import { normalizeProduct, DAY_NAMES } from '../utils/formatters';
 import { Calendar, Filter, Download, BarChart2, Layers } from 'lucide-react';
 import { useExcelExport } from '../hooks/useExcelExport';
+import DateRangePicker from '../components/common/DateRangePicker';
 
 const LeadsAnalysisPage = () => {
-    const { appendData, sentData, telesalesData, dateRange } = useData();
+    const { appendData, sentData, telesalesData, dateRange, setDateRange } = useData();
     const { exportToExcel } = useExcelExport();
 
     // View State
@@ -215,6 +216,13 @@ const LeadsAnalysisPage = () => {
                     <Layers className="w-6 h-6 text-indigo-600" />
                     <h2 className="text-xl font-bold text-gray-800">Leads Analysis</h2>
                 </div>
+
+                {/* Date Picker */}
+                <DateRangePicker
+                    startDate={dateRange.start}
+                    endDate={dateRange.end}
+                    onChange={setDateRange}
+                />
 
                 {/* View Switcher */}
                 <div className="flex bg-slate-100 p-1 rounded-lg gap-1 overflow-x-auto max-w-full">
