@@ -97,7 +97,7 @@ const MainLayout = ({ children, user, onLogout, activeTab, setActiveTab }) => {
                 </div>
 
                 {/* Global Filter Bar (Conditionally Rendered) */}
-                {activeTab !== 'users' && activeTab !== 'smart-analysis' && activeTab !== 'product-master' && activeTab !== 'leads-analysis' && (
+                {activeTab !== 'users' && activeTab !== 'smart-analysis' && activeTab !== 'product-master' && (
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                         <div className="lg:col-span-8 glass-card p-6 rounded-2xl flex flex-col justify-center">
                             <div className="flex items-center gap-2 mb-4">
