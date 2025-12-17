@@ -1,3 +1,8 @@
+# ⛔️ RESTRICTED DEPLOYMENT WARNING
+**DO NOT DEPLOY TO: `oh-jay.duckdns.org` (158.178.233.231)**
+**This target is STRICTLY FORBIDDEN.**
+Use Vercel only.
+
 # คู่มือการอัปโหลดขึ้นเว็บไซต์ (Deployment Guide)
 
 คู่มือนี้จะช่วยให้คุณนำ Dashboard นี้ขึ้นออนไลน์เพื่อให้คนอื่นสามารถเข้าดูผ่านอินเทอร์เน็ตได้ฟรี โดยใช้บริการของ **GitHub** และ **Vercel**

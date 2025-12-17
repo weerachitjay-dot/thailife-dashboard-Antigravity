@@ -198,9 +198,6 @@ export const DataProvider = ({ children }) => {
             appendData,
             sentData,
             targetData,
-            sentData,
-            targetData,
-            appendTimeData,
             telesalesData,
             campaignConfig,
             setCampaignConfig, // Allow updating config

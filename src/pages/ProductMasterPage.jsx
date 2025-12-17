@@ -11,6 +11,8 @@ const ProductMasterPage = () => {
     const { appendData, sentData, targetData, telesalesData, dateRange, setDateRange } = useData();
     const [expandedProducts, setExpandedProducts] = useState({});
     const [filterProduct, setFilterProduct] = useState('All Products');
+    // New: Target Date Range separate from View Date Range
+    const [targetDateRange, setTargetDateRange] = useState({ start: '', end: '' });
     const { exportToExcel } = useExcelExport();
 
     // --- LOGIC: Process Data ---
@@ -20,11 +22,21 @@ const ProductMasterPage = () => {
             spend: 0,
             leadsMeta: 0,
             leadsSent: 0,
-            leadsTL: 0, // Placeholder
+            leadsTL: 0,
+            target: 0, // New
             revenue: 0,
             profit: 0
         };
         const inputDates = dateRange.start && dateRange.end ? dateRange : { start: '2000-01-01', end: '2099-12-31' };
+
+        // Determine Target Calculation Days
+        // If Target Date Range is set, use it. Otherwise, use View Date Range.
+        const tStart = targetDateRange.start ? new Date(targetDateRange.start) : (dateRange.start ? new Date(dateRange.start) : new Date());
+        const tEnd = targetDateRange.end ? new Date(targetDateRange.end) : (dateRange.end ? new Date(dateRange.end) : new Date());
+
+        // Calculate days difference (inclusive)
+        const timeDiff = tEnd.getTime() - tStart.getTime();
+        const targetDays = Math.max(1, Math.ceil(timeDiff / (1000 * 3600 * 24)) + 1);
 
         // Helper to get group
         const getGroup = (prodName) => {
@@ -34,7 +46,8 @@ const ProductMasterPage = () => {
                     name: normalized,
                     total: {
                         spend: 0, leadsMeta: 0, leadsSent: 0, leadsTL: 0, revenue: 0, profit: 0,
-                        cplMeta: 0, cplSent: 0, cplTL: 0, roi: 0
+                        cplMeta: 0, cplSent: 0, cplTL: 0, roi: 0,
+                        target: 0, missing: 0, achievement: 0 // New
                     },
                     days: {}
                 };
@@ -108,24 +121,34 @@ const ProductMasterPage = () => {
             totals.leadsTL += tl;
         });
 
-        // 4. Process Revenue & Profit (Need Target Price)
-        // Build map of Target Sell Price by Product
+        // 4. Process Revenue & Profit AND TARGETS
+        // Build map of Target Sell Price by Product & Monthly Target
         const priceMap = {};
+        const targetMap = {}; // Normalized Product -> Monthly Target
+
         targetData.forEach(t => {
-            if (t.Product_Target && t.Target_SellPrice) {
-                // Assuming Target Product names match Normalized names or are close enough
-                // In a perfect world we normalize target names too.
-                // For now, let's normalize target product name to be safe
-                // NOTE: Using formatters logic if target names are raw
-                // But usually target names in targetData might be "CLEAN" already?
-                // Let's rely on simple match or normalized match
-                priceMap[normalizeProduct(t.Product_Target)] = parseFloat(t.Target_SellPrice) || 0;
+            if (t.Product_Target) {
+                const norm = normalizeProduct(t.Product_Target);
+                if (t.Target_SellPrice) {
+                    priceMap[norm] = parseFloat(t.Target_SellPrice) || 0;
+                }
+                if (t.Target_Lead_Sent) { // Using Target_Lead_Sent as the main Volume Target
+                    targetMap[norm] = parseFloat(t.Target_Lead_Sent) || 0;
+                }
             }
         });
 
         // 4. Final Calculations per Day & Group
         Object.values(groups).forEach(group => {
             const sellPrice = priceMap[group.name] || 0;
+            const monthlyTarget = targetMap[group.name] || 0;
+
+            // Calculate Target for the selected range (Pro-rated)
+            // Assumption: Monthly Target / 30 * Days Selected
+            const computedTarget = (monthlyTarget / 30) * targetDays;
+
+            // Assign to group total
+            group.total.target = computedTarget;
 
             // Calculate Daily Computed Metrics
             Object.values(group.days).forEach(day => {
@@ -134,8 +157,13 @@ const ProductMasterPage = () => {
                 day.roi = day.spend > 0 ? (day.profit / day.spend) * 100 : 0;
 
                 day.cplMeta = day.leadsMeta > 0 ? day.spend / day.leadsMeta : 0;
-                day.cplSent = day.leadsSent > 0 ? day.spend / day.leadsSent : 0; // Cost per Lead Sent (Total Cost / Sent)
+                day.cplSent = day.leadsSent > 0 ? day.spend / day.leadsSent : 0;
                 day.cplTL = day.leadsTL > 0 ? day.spend / day.leadsTL : 0;
+
+                // Daily Target (Simple average)
+                day.target = monthlyTarget / 30;
+                day.missing = day.target - day.leadsTL;
+                day.achievement = day.target > 0 ? (day.leadsTL / day.target) * 100 : 0;
 
                 totals.revenue += day.revenue;
                 totals.profit += day.profit;
@@ -149,6 +177,12 @@ const ProductMasterPage = () => {
             group.total.cplMeta = group.total.leadsMeta > 0 ? group.total.spend / group.total.leadsMeta : 0;
             group.total.cplSent = group.total.leadsSent > 0 ? group.total.spend / group.total.leadsSent : 0;
             group.total.cplTL = group.total.leadsTL > 0 ? group.total.spend / group.total.leadsTL : 0;
+
+            // Target Metrics for Group
+            group.total.missing = group.total.target - group.total.leadsTL;
+            group.total.achievement = group.total.target > 0 ? (group.total.leadsTL / group.total.target) * 100 : 0;
+
+            totals.target += group.total.target;
         });
 
         // Filter Groups if needed
@@ -168,15 +202,18 @@ const ProductMasterPage = () => {
             cplSent: totals.leadsSent > 0 ? totals.spend / totals.leadsSent : 0,
             cplTL: totals.leadsTL > 0 ? totals.spend / totals.leadsTL : 0,
             roi: totals.spend > 0 ? (totals.profit / totals.spend) * 100 : 0,
+            missing: totals.target - totals.leadsTL,
+            achievement: totals.target > 0 ? (totals.leadsTL / totals.target) * 100 : 0
         };
 
         return {
             productGroups: resultGroups,
             grandTotals: derivedTotals,
-            uniqueProducts: Object.keys(groups).sort()
+            uniqueProducts: Object.keys(groups).sort(),
+            targetDays // Check
         };
 
-    }, [appendData, sentData, targetData, telesalesData, dateRange, filterProduct]);
+    }, [appendData, sentData, targetData, telesalesData, dateRange, filterProduct, targetDateRange]);
 
     // --- UI Helpers ---
     const toggleRow = (prodName) => {
@@ -212,6 +249,9 @@ const ProductMasterPage = () => {
                 CPL_Sent: g.total.cplSent,
                 Leads_TL: g.total.leadsTL,
                 CPL_TL: g.total.cplTL,
+                Target: g.total.target,
+                Missing: g.total.missing,
+                Achievement: g.total.achievement,
                 Revenue: g.total.revenue,
                 Profit: g.total.profit,
                 ROI: g.total.roi
@@ -228,6 +268,9 @@ const ProductMasterPage = () => {
                     CPL_Sent: d.cplSent,
                     Leads_TL: d.leadsTL,
                     CPL_TL: d.cplTL,
+                    Target: d.target,
+                    Missing: d.missing,
+                    Achievement: d.achievement,
                     Revenue: d.revenue,
                     Profit: d.profit,
                     ROI: d.roi
@@ -261,8 +304,7 @@ const ProductMasterPage = () => {
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
                 <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 flex flex-wrap items-end gap-4">
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Date Range</label>
-                        {/* Reusing existing logic or simple placeholder for standard date picker */}
+                        <label className="block text-sm font-medium text-gray-700 mb-1">View Data Range</label>
                         <div className="flex items-center gap-2">
                             <input
                                 type="date"
@@ -276,6 +318,29 @@ const ProductMasterPage = () => {
                                 className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-indigo-500 focus:border-indigo-500"
                                 value={dateRange.end || ''}
                                 onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
+                            />
+                        </div>
+                    </div>
+
+                    {/* New Target Date Filter */}
+                    <div>
+                        <label className="block text-sm font-medium text-indigo-700 mb-1 flex items-center gap-1">
+                            Target Date Range
+                            <span className="text-xs font-normal text-indigo-500">(For Calculation)</span>
+                        </label>
+                        <div className="flex items-center gap-2">
+                            <input
+                                type="date"
+                                className="border border-indigo-200 bg-indigo-50/30 rounded-md px-3 py-2 text-sm focus:ring-indigo-500 focus:border-indigo-500 text-indigo-700"
+                                value={targetDateRange.start || dateRange.start || ''}
+                                onChange={(e) => setTargetDateRange(prev => ({ ...prev, start: e.target.value }))}
+                            />
+                            <span className="text-indigo-300">-</span>
+                            <input
+                                type="date"
+                                className="border border-indigo-200 bg-indigo-50/30 rounded-md px-3 py-2 text-sm focus:ring-indigo-500 focus:border-indigo-500 text-indigo-700"
+                                value={targetDateRange.end || dateRange.end || ''}
+                                onChange={(e) => setTargetDateRange(prev => ({ ...prev, end: e.target.value }))}
                             />
                         </div>
                     </div>
@@ -322,6 +387,11 @@ const ProductMasterPage = () => {
                                     <th scope="col" className="px-4 py-3 text-right text-xs font-bold text-blue-600 uppercase tracking-wider border-l border-gray-200 bg-blue-50/50">Leads_META</th>
                                     <th scope="col" className="px-4 py-3 text-right text-xs font-bold text-blue-600 uppercase tracking-wider bg-blue-50/50">CPL_META</th>
 
+                                    {/* TARGET ANALYSIS (New) */}
+                                    <th scope="col" className="px-4 py-3 text-right text-xs font-bold text-indigo-700 uppercase tracking-wider border-l border-gray-200 bg-indigo-50/50">Target</th>
+                                    <th scope="col" className="px-4 py-3 text-right text-xs font-bold text-indigo-700 uppercase tracking-wider bg-indigo-50/50">Missing</th>
+                                    <th scope="col" className="px-4 py-3 text-right text-xs font-bold text-indigo-700 uppercase tracking-wider bg-indigo-50/50">% Achv</th>
+
                                     {/* SENT GROUP */}
                                     <th scope="col" className="px-4 py-3 text-right text-xs font-bold text-yellow-700 uppercase tracking-wider border-l border-gray-200 bg-yellow-50/50">Leads Sent</th>
                                     <th scope="col" className="px-4 py-3 text-right text-xs font-bold text-yellow-700 uppercase tracking-wider bg-yellow-50/50">CPL (Sent)</th>
@@ -365,6 +435,23 @@ const ProductMasterPage = () => {
                                             </td>
                                             <td className="px-4 py-4 whitespace-nowrap text-right text-sm text-blue-700 bg-blue-50/30">
                                                 ฿{group.total.cplMeta.toFixed(0)}
+                                            </td>
+
+                                            {/* TARGET ANALYSIS */}
+                                            <td className="px-4 py-4 whitespace-nowrap text-right text-sm text-indigo-800 font-bold border-l border-gray-200 bg-indigo-50/30">
+                                                {group.total.target.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                            </td>
+                                            <td className={`px-4 py-4 whitespace-nowrap text-right text-sm font-bold bg-indigo-50/30 ${group.total.missing > 0 ? 'text-red-500' : 'text-green-600'}`}>
+                                                {group.total.missing > 0 ? '-' : '+'}{Math.abs(group.total.missing).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                            </td>
+                                            <td className="px-4 py-4 whitespace-nowrap text-right text-sm text-indigo-800 font-bold bg-indigo-50/30 relative">
+                                                {group.total.achievement.toFixed(0)}%
+                                                <div className="absolute bottom-1 left-2 right-2 h-1 bg-gray-200 rounded-full overflow-hidden">
+                                                    <div
+                                                        className={`h-full ${group.total.achievement >= 100 ? 'bg-green-500' : 'bg-indigo-500'}`}
+                                                        style={{ width: `${Math.min(group.total.achievement, 100)}%` }}
+                                                    ></div>
+                                                </div>
                                             </td>
 
                                             {/* SENT */}
@@ -415,6 +502,17 @@ const ProductMasterPage = () => {
                                                         {day.cplMeta.toFixed(0)}
                                                     </td>
 
+                                                    {/* TARGET */}
+                                                    <td className="px-4 py-2 text-right text-sm text-indigo-600 border-l border-gray-100 bg-indigo-50/10">
+                                                        {day.target.toFixed(1)}
+                                                    </td>
+                                                    <td className={`px-4 py-2 text-right text-sm bg-indigo-50/10 ${day.missing > 0 ? 'text-red-400' : 'text-green-500'}`}>
+                                                        {day.missing > 0 ? '-' : ''}{Math.abs(day.missing).toFixed(0)}
+                                                    </td>
+                                                    <td className="px-4 py-2 text-right text-sm text-indigo-600 bg-indigo-50/10">
+                                                        {day.achievement.toFixed(0)}%
+                                                    </td>
+
                                                     {/* SENT */}
                                                     <td className="px-4 py-2 text-right text-sm text-yellow-700 border-l border-gray-100 bg-yellow-50/10 font-medium">
                                                         {day.leadsSent}
@@ -460,6 +558,17 @@ const ProductMasterPage = () => {
                                     </td>
                                     <td className="px-4 py-4 text-right text-sm font-bold text-blue-700">
                                         ฿{grandTotals.cplMeta.toFixed(0)}
+                                    </td>
+
+                                    {/* TARGET TOTALS */}
+                                    <td className="px-4 py-4 text-right text-sm font-bold text-indigo-700 border-l border-gray-200">
+                                        {grandTotals.target.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                    </td>
+                                    <td className={`px-4 py-4 text-right text-sm font-bold ${grandTotals.missing > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                                        {grandTotals.missing > 0 ? '-' : '+'}{Math.abs(grandTotals.missing).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                    </td>
+                                    <td className="px-4 py-4 text-right text-sm font-bold text-indigo-700">
+                                        {grandTotals.achievement.toFixed(0)}%
                                     </td>
                                     <td className="px-4 py-4 text-right text-sm font-bold text-yellow-800 border-l border-gray-200">
                                         {grandTotals.leadsSent.toLocaleString()}
