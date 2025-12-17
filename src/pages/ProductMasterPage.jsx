@@ -390,11 +390,6 @@ const ProductMasterPage = () => {
                                     <th scope="col" className="px-4 py-3 text-right text-xs font-bold text-blue-600 uppercase tracking-wider border-l border-gray-200 bg-blue-50/50">Leads_META</th>
                                     <th scope="col" className="px-4 py-3 text-right text-xs font-bold text-blue-600 uppercase tracking-wider bg-blue-50/50">CPL_META</th>
 
-                                    {/* TARGET ANALYSIS (New) */}
-                                    <th scope="col" className="px-4 py-3 text-right text-xs font-bold text-indigo-700 uppercase tracking-wider border-l border-gray-200 bg-indigo-50/50">Target</th>
-                                    <th scope="col" className="px-4 py-3 text-right text-xs font-bold text-indigo-700 uppercase tracking-wider bg-indigo-50/50">Missing</th>
-                                    <th scope="col" className="px-4 py-3 text-right text-xs font-bold text-indigo-700 uppercase tracking-wider bg-indigo-50/50">% Achv</th>
-
                                     {/* SENT GROUP */}
                                     <th scope="col" className="px-4 py-3 text-right text-xs font-bold text-yellow-700 uppercase tracking-wider border-l border-gray-200 bg-yellow-50/50">Leads Sent</th>
                                     <th scope="col" className="px-4 py-3 text-right text-xs font-bold text-yellow-700 uppercase tracking-wider bg-yellow-50/50">CPL (Sent)</th>
@@ -402,6 +397,11 @@ const ProductMasterPage = () => {
                                     {/* TELESALES GROUP (Placeholder) */}
                                     <th scope="col" className="px-4 py-3 text-right text-xs font-bold text-purple-700 uppercase tracking-wider border-l border-gray-200 bg-purple-50/50">Leads_TL</th>
                                     <th scope="col" className="px-4 py-3 text-right text-xs font-bold text-purple-700 uppercase tracking-wider bg-purple-50/50">CPL_TL</th>
+
+                                    {/* TARGET ANALYSIS (New) */}
+                                    <th scope="col" className="px-4 py-3 text-right text-xs font-bold text-indigo-700 uppercase tracking-wider border-l border-gray-200 bg-indigo-50/50">Target</th>
+                                    <th scope="col" className="px-4 py-3 text-right text-xs font-bold text-indigo-700 uppercase tracking-wider bg-indigo-50/50">Missing</th>
+                                    <th scope="col" className="px-4 py-3 text-right text-xs font-bold text-indigo-700 uppercase tracking-wider bg-indigo-50/50">% Achv</th>
 
                                     {/* BUSINESS OUTCOME */}
                                     <th scope="col" className="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider border-l border-gray-200">Revenue</th>
@@ -440,6 +440,22 @@ const ProductMasterPage = () => {
                                                 ฿{group.total.cplMeta.toFixed(0)}
                                             </td>
 
+                                            {/* SENT */}
+                                            <td className="px-4 py-4 whitespace-nowrap text-right text-sm text-yellow-800 font-bold border-l border-gray-200 bg-yellow-50/30">
+                                                {group.total.leadsSent.toLocaleString()}
+                                            </td>
+                                            <td className="px-4 py-4 whitespace-nowrap text-right text-sm text-yellow-800 bg-yellow-50/30">
+                                                ฿{group.total.cplSent.toFixed(0)}
+                                            </td>
+
+                                            {/* TL */}
+                                            <td className="px-4 py-4 whitespace-nowrap text-right text-sm text-purple-800 font-bold border-l border-gray-200 bg-purple-50/30">
+                                                {group.total.leadsTL.toLocaleString()}
+                                            </td>
+                                            <td className="px-4 py-4 whitespace-nowrap text-right text-sm text-purple-800 bg-purple-50/30">
+                                                ฿{group.total.cplTL.toFixed(0)}
+                                            </td>
+
                                             {/* TARGET ANALYSIS */}
                                             <td className="px-4 py-4 whitespace-nowrap text-right text-sm text-indigo-800 font-bold border-l border-gray-200 bg-indigo-50/30">
                                                 {group.total.target.toLocaleString(undefined, { maximumFractionDigits: 0 })}
@@ -455,22 +471,6 @@ const ProductMasterPage = () => {
                                                         style={{ width: `${Math.min(group.total.achievement, 100)}%` }}
                                                     ></div>
                                                 </div>
-                                            </td>
-
-                                            {/* SENT */}
-                                            <td className="px-4 py-4 whitespace-nowrap text-right text-sm text-yellow-800 font-bold border-l border-gray-200 bg-yellow-50/30">
-                                                {group.total.leadsSent.toLocaleString()}
-                                            </td>
-                                            <td className="px-4 py-4 whitespace-nowrap text-right text-sm text-yellow-800 bg-yellow-50/30">
-                                                ฿{group.total.cplSent.toFixed(0)}
-                                            </td>
-
-                                            {/* TL */}
-                                            <td className="px-4 py-4 whitespace-nowrap text-right text-sm text-purple-800 font-bold border-l border-gray-200 bg-purple-50/30">
-                                                {group.total.leadsTL.toLocaleString()}
-                                            </td>
-                                            <td className="px-4 py-4 whitespace-nowrap text-right text-sm text-purple-800 bg-purple-50/30">
-                                                ฿{group.total.cplTL.toFixed(0)}
                                             </td>
 
                                             {/* OUTCOME */}
@@ -505,17 +505,6 @@ const ProductMasterPage = () => {
                                                         {day.cplMeta.toFixed(0)}
                                                     </td>
 
-                                                    {/* TARGET */}
-                                                    <td className="px-4 py-2 text-right text-sm text-indigo-600 border-l border-gray-100 bg-indigo-50/10">
-                                                        {day.target.toFixed(1)}
-                                                    </td>
-                                                    <td className={`px-4 py-2 text-right text-sm bg-indigo-50/10 ${day.missing > 0 ? 'text-red-400' : 'text-green-500'}`}>
-                                                        {day.missing > 0 ? '-' : ''}{Math.abs(day.missing).toFixed(0)}
-                                                    </td>
-                                                    <td className="px-4 py-2 text-right text-sm text-indigo-600 bg-indigo-50/10">
-                                                        {day.achievement.toFixed(0)}%
-                                                    </td>
-
                                                     {/* SENT */}
                                                     <td className="px-4 py-2 text-right text-sm text-yellow-700 border-l border-gray-100 bg-yellow-50/10 font-medium">
                                                         {day.leadsSent}
@@ -530,6 +519,17 @@ const ProductMasterPage = () => {
                                                     </td>
                                                     <td className="px-4 py-2 text-right text-sm text-purple-700 bg-purple-50/10">
                                                         {day.cplTL.toFixed(0)}
+                                                    </td>
+
+                                                    {/* TARGET */}
+                                                    <td className="px-4 py-2 text-right text-sm text-indigo-600 border-l border-gray-100 bg-indigo-50/10">
+                                                        {day.target.toFixed(1)}
+                                                    </td>
+                                                    <td className={`px-4 py-2 text-right text-sm bg-indigo-50/10 ${day.missing > 0 ? 'text-red-400' : 'text-green-500'}`}>
+                                                        {day.missing > 0 ? '-' : ''}{Math.abs(day.missing).toFixed(0)}
+                                                    </td>
+                                                    <td className="px-4 py-2 text-right text-sm text-indigo-600 bg-indigo-50/10">
+                                                        {day.achievement.toFixed(0)}%
                                                     </td>
 
                                                     {/* OUTCOME */}
@@ -563,16 +563,6 @@ const ProductMasterPage = () => {
                                         ฿{grandTotals.cplMeta.toFixed(0)}
                                     </td>
 
-                                    {/* TARGET TOTALS */}
-                                    <td className="px-4 py-4 text-right text-sm font-bold text-indigo-700 border-l border-gray-200">
-                                        {grandTotals.target.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                                    </td>
-                                    <td className={`px-4 py-4 text-right text-sm font-bold ${grandTotals.missing > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                                        {grandTotals.missing > 0 ? '-' : '+'}{Math.abs(grandTotals.missing).toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                                    </td>
-                                    <td className="px-4 py-4 text-right text-sm font-bold text-indigo-700">
-                                        {grandTotals.achievement.toFixed(0)}%
-                                    </td>
                                     <td className="px-4 py-4 text-right text-sm font-bold text-yellow-800 border-l border-gray-200">
                                         {grandTotals.leadsSent.toLocaleString()}
                                     </td>
@@ -584,6 +574,17 @@ const ProductMasterPage = () => {
                                     </td>
                                     <td className="px-4 py-4 text-right text-sm font-bold text-purple-800">
                                         ฿{grandTotals.cplTL.toFixed(0)}
+                                    </td>
+
+                                    {/* TARGET TOTALS */}
+                                    <td className="px-4 py-4 text-right text-sm font-bold text-indigo-700 border-l border-gray-200">
+                                        {grandTotals.target.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                    </td>
+                                    <td className={`px-4 py-4 text-right text-sm font-bold ${grandTotals.missing > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                                        {grandTotals.missing > 0 ? '-' : '+'}{Math.abs(grandTotals.missing).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                    </td>
+                                    <td className="px-4 py-4 text-right text-sm font-bold text-indigo-700">
+                                        {grandTotals.achievement.toFixed(0)}%
                                     </td>
                                     <td className="px-4 py-4 text-right text-sm font-bold text-gray-900 border-l border-gray-200">
                                         ฿{grandTotals.revenue.toLocaleString(undefined, { maximumFractionDigits: 0 })}
