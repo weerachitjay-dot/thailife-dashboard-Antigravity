@@ -10,7 +10,9 @@ import { useExcelExport } from '../hooks/useExcelExport';
 const ProductMasterPage = () => {
     const { appendData, sentData, targetData, telesalesData, dateRange, setDateRange } = useData();
     const [expandedProducts, setExpandedProducts] = useState({});
-    const [filterProduct, setFilterProduct] = useState('All Products');
+    const [selectedProducts, setSelectedProducts] = useState([]); // Empty = All, or use ['All'] logic. Let's use internal logic: Empty array = All? Or UI shows 'All'. Let's default to specific logic.
+    // Better: Helper to check if "All" is selected or array is empty.
+    const isAllSelected = selectedProducts.length === 0;
     // New: Target Date Range separate from View Date Range
     const [targetDateRange, setTargetDateRange] = useState({ start: '', end: '' });
     const { exportToExcel } = useExcelExport();
@@ -188,35 +190,45 @@ const ProductMasterPage = () => {
             totals.target += group.total.target;
         });
 
-        // Filter Groups if needed
+        // Filter Groups
         let resultGroups = Object.values(groups);
-        if (filterProduct !== 'All Products') {
-            resultGroups = resultGroups.filter(g => g.name === normalizeProduct(filterProduct));
+        if (selectedProducts.length > 0) {
+            resultGroups = resultGroups.filter(g => selectedProducts.includes(g.name));
         }
 
-        // Sort Groups by something? Maybe Alphabetical or Profit? 
-        // User didn't specify, but alphabetical usually best for "Master Report" or Profit.
-        // Let's sort by Name for now.
+        // Sort Groups
         resultGroups.sort((a, b) => a.name.localeCompare(b.name));
 
+        // RECACULATE GRAND TOTALS based on Filtered Result
+        const filteredTotals = resultGroups.reduce((acc, group) => {
+            acc.spend += group.total.spend;
+            acc.leadsMeta += group.total.leadsMeta;
+            acc.leadsSent += group.total.leadsSent;
+            acc.leadsTL += group.total.leadsTL;
+            acc.target += group.total.target;
+            acc.revenue += group.total.revenue;
+            acc.profit += group.total.profit;
+            return acc;
+        }, { spend: 0, leadsMeta: 0, leadsSent: 0, leadsTL: 0, target: 0, revenue: 0, profit: 0 });
+
         const derivedTotals = {
-            ...totals,
-            cplMeta: totals.leadsMeta > 0 ? totals.spend / totals.leadsMeta : 0,
-            cplSent: totals.leadsSent > 0 ? totals.spend / totals.leadsSent : 0,
-            cplTL: totals.leadsTL > 0 ? totals.spend / totals.leadsTL : 0,
-            roi: totals.spend > 0 ? (totals.profit / totals.spend) * 100 : 0,
-            missing: totals.target - totals.leadsTL,
-            achievement: totals.target > 0 ? (totals.leadsTL / totals.target) * 100 : 0
+            ...filteredTotals,
+            cplMeta: filteredTotals.leadsMeta > 0 ? filteredTotals.spend / filteredTotals.leadsMeta : 0,
+            cplSent: filteredTotals.leadsSent > 0 ? filteredTotals.spend / filteredTotals.leadsSent : 0,
+            cplTL: filteredTotals.leadsTL > 0 ? filteredTotals.spend / filteredTotals.leadsTL : 0,
+            roi: filteredTotals.spend > 0 ? (filteredTotals.profit / filteredTotals.spend) * 100 : 0,
+            missing: filteredTotals.target - filteredTotals.leadsTL,
+            achievement: filteredTotals.target > 0 ? (filteredTotals.leadsTL / filteredTotals.target) * 100 : 0
         };
 
         return {
             productGroups: resultGroups,
             grandTotals: derivedTotals,
             uniqueProducts: Object.keys(groups).sort(),
-            targetDays // Check
+            targetDays
         };
 
-    }, [appendData, sentData, targetData, telesalesData, dateRange, filterProduct, targetDateRange]);
+    }, [appendData, sentData, targetData, telesalesData, dateRange, selectedProducts, targetDateRange]);
 
     // --- UI Helpers ---
     const toggleRow = (prodName) => {
@@ -347,18 +359,51 @@ const ProductMasterPage = () => {
                             />
                         </div>
                     </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Product</label>
-                        <select
-                            className="block w-48 pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md border"
-                            value={filterProduct}
-                            onChange={(e) => setFilterProduct(e.target.value)}
+                    {/* Filter: Product (Multi-Select) */}
+                    <div className="relative">
+                        <button
+                            onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                            className="flex items-center justify-between gap-2 px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-700 hover:border-indigo-300 hover:text-indigo-600 transition-colors min-w-[180px]"
                         >
-                            <option>All Products</option>
-                            {uniqueProducts.map(p => (
-                                <option key={p} value={p}>{p}</option>
-                            ))}
-                        </select>
+                            <span>
+                                {selectedProducts.length === 0
+                                    ? 'Select Products...'
+                                    : selectedProducts.length === uniqueProducts.length
+                                        ? 'All Products Selected'
+                                        : `${selectedProducts.length} Product(s)`}
+                            </span>
+                            <ChevronDown className="w-4 h-4 text-slate-400" />
+                        </button>
+
+                        {isDropdownOpen && (
+                            <>
+                                <div className="fixed inset-0 z-10" onClick={() => setIsDropdownOpen(false)}></div>
+                                <div className="absolute right-0 mt-2 w-64 bg-white border border-slate-200 rounded-xl shadow-xl z-20 overflow-hidden flex flex-col max-h-[400px]">
+                                    <div className="p-2 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
+                                        <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Select Products</span>
+                                        <button
+                                            onClick={handleSelectAll}
+                                            className="text-xs text-indigo-600 font-bold hover:underline"
+                                        >
+                                            {selectedProducts.length === uniqueProducts.length ? 'Deselect All' : 'Select All'}
+                                        </button>
+                                    </div>
+                                    <div className="overflow-y-auto p-2 space-y-1 custom-scrollbar">
+                                        {uniqueProducts.map(prod => (
+                                            <label key={prod} className="flex items-center gap-2 px-2 py-1.5 hover:bg-indigo-50 rounded-lg cursor-pointer transition-colors">
+                                                <input
+                                                    type="checkbox"
+                                                    className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                                    checked={selectedProducts.includes(prod)}
+                                                    onChange={() => handleProductToggle(prod)}
+                                                />
+                                                <span className="text-sm text-slate-700 truncate">{prod}</span>
+                                            </label>
+                                        ))}
+                                    </div>
+                                </div>
+                            </>
+                        )}
                     </div>
                     <div className="flex-grow"></div>
                     <div className="flex space-x-4">
