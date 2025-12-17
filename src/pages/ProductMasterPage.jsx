@@ -144,13 +144,16 @@ const ProductMasterPage = () => {
             const monthlyTarget = targetMap[group.name] || 0;
 
             // Calculate Target for the selected range (Pro-rated)
-            // Assumption: Monthly Target / 30 * Days Selected
-            const computedTarget = (monthlyTarget / 30) * targetDays;
+            // User Update: Group Total must be FULL Monthly Target.
+            const computedTarget = monthlyTarget;
 
             // Assign to group total
             group.total.target = computedTarget;
 
             // Calculate Daily Computed Metrics
+            // User Update: Daily Target = Full Target / Days in Target Calculation Range
+            const dailyTarget = targetDays > 0 ? monthlyTarget / targetDays : 0;
+
             Object.values(group.days).forEach(day => {
                 day.revenue = day.leadsTL * sellPrice;
                 day.profit = day.revenue - day.spend;
@@ -160,8 +163,8 @@ const ProductMasterPage = () => {
                 day.cplSent = day.leadsSent > 0 ? day.spend / day.leadsSent : 0;
                 day.cplTL = day.leadsTL > 0 ? day.spend / day.leadsTL : 0;
 
-                // Daily Target (Simple average)
-                day.target = monthlyTarget / 30;
+                // Daily Target
+                day.target = dailyTarget;
                 day.missing = day.target - day.leadsTL;
                 day.achievement = day.target > 0 ? (day.leadsTL / day.target) * 100 : 0;
 
