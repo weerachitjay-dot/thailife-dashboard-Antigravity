@@ -230,6 +230,27 @@ const ProductMasterPage = () => {
 
     }, [appendData, sentData, targetData, telesalesData, dateRange, selectedProducts, targetDateRange]);
 
+    // --- Multi Select Handler ---
+    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+
+    const handleProductToggle = (productName) => {
+        setSelectedProducts(prev => {
+            if (prev.includes(productName)) {
+                return prev.filter(p => p !== productName);
+            } else {
+                return [...prev, productName];
+            }
+        });
+    };
+
+    const handleSelectAll = () => {
+        if (selectedProducts.length === uniqueProducts.length) {
+            setSelectedProducts([]); // Clear all
+        } else {
+            setSelectedProducts(uniqueProducts); // Select all
+        }
+    };
+
     // --- UI Helpers ---
     const toggleRow = (prodName) => {
         setExpandedProducts(prev => ({
