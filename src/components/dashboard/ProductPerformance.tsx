@@ -35,7 +35,7 @@ export const ProductPerformance = ({ data }: { data: ProductStat[] }) => {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {(data ?? []).map((product) => (
+                        {(Array.isArray(data) ? data : []).map((product) => (
                             <TableRow key={product.productCode}>
                                 <TableCell className="font-medium">{product.productCode}</TableCell>
                                 <TableCell className="text-right">฿{product.spend.toLocaleString()}</TableCell>

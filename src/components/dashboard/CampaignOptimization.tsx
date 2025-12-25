@@ -36,7 +36,7 @@ export const CampaignOptimization = ({ data }: { data: CampaignRow[] }) => {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {(data ?? []).map((camp) => {
+                        {(Array.isArray(data) ? data : []).map((camp) => {
                             const stats: CampaignStats = {
                                 cost: camp.spend,
                                 leads: camp.leads,
