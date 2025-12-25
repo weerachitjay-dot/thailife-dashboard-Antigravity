@@ -71,33 +71,108 @@ export const MetricsComputeAgent = async (state: GlobalState): Promise<Partial<G
 };
 
 // A6: SupabaseIngestAgent (Writer)
+import { parseCampaignName } from '@/services/campaignParser';
+
 export const SupabaseIngestAgent = async (state: GlobalState): Promise<Partial<GlobalState>> => {
     console.log("💾 Agent A6 (Writer): Upserting to Supabase...");
     const rows = state.normalized_metrics;
     if (!rows || rows.length === 0) return { write_status: { success: true, inserted_count: 0 } };
 
+    // 1. Process Campaigns (Legacy Support & Metadata)
+    const uniqueCampaigns = new Map();
+    rows.forEach(r => {
+        if (!uniqueCampaigns.has(r.campaign_id)) {
+            const parsed = parseCampaignName(r.campaign_name);
+            uniqueCampaigns.set(r.campaign_id, {
+                fb_campaign_id: r.campaign_id,
+                account_id: state.config.ad_account_id,
+                name: r.campaign_name,
+                product_code: parsed.productCode === 'Unknown' ? null : parsed.productCode,
+                objective: parsed.objective,
+                audience: parsed.audience,
+                status: 'ACTIVE', // Assumed active as we fetched it
+                updated_at: new Date().toISOString()
+            });
+        }
+    });
+
+    const campaignsToUpsert = Array.from(uniqueCampaigns.values());
+    console.log(`   -> Syncing ${campaignsToUpsert.length} Campaigns...`);
+
+    // Upsert Campaigns & Get UUIDs
+    const { data: upsertedCampaigns, error: campError } = await supabaseAdmin
+        .from('campaigns')
+        .upsert(campaignsToUpsert, { onConflict: 'fb_campaign_id' })
+        .select('id, fb_campaign_id');
+
+    if (campError) {
+        console.error("A6 Campaign Write Error:", campError);
+        return { write_status: { success: false, inserted_count: 0, error: "Campaign Upsert Failed: " + campError.message } };
+    }
+
+    // Map FB_ID -> UUID
+    const campaignIdMap = new Map(upsertedCampaigns?.map(c => [c.fb_campaign_id, c.id]));
+
+    // 2. Process Daily Metrics (Legacy Support)
+    // Aggregate Hourly -> Daily
+    const dailyMap = new Map(); // Key: campaignId_date
+    rows.forEach(r => {
+        const uuid = campaignIdMap.get(r.campaign_id);
+        if (!uuid) return;
+
+        const key = `${uuid}_${r.date_start}`;
+        if (!dailyMap.has(key)) {
+            dailyMap.set(key, {
+                campaign_id: uuid,
+                date: r.date_start,
+                spend: 0,
+                impressions: 0,
+                clicks: 0,
+                leads: 0
+            });
+        }
+        const stat = dailyMap.get(key);
+        stat.spend += r.spend;
+        stat.impressions += r.impressions;
+        stat.clicks += r.clicks;
+        stat.leads += r.leads;
+    });
+
+    const dailyMetricsToUpsert = Array.from(dailyMap.values()).map(d => ({
+        ...d,
+        cpl: d.leads > 0 ? d.spend / d.leads : 0,
+        ctr: d.impressions > 0 ? (d.clicks / d.impressions) * 100 : 0,
+        cpc: d.clicks > 0 ? d.spend / d.clicks : 0
+    }));
+
+    console.log(`   -> Syncing ${dailyMetricsToUpsert.length} Daily Metric Rows...`);
+    const { error: dailyError } = await supabaseAdmin
+        .from('daily_metrics')
+        .upsert(dailyMetricsToUpsert, { onConflict: 'campaign_id,date' });
+
+    if (dailyError) {
+        console.error("A6 Daily Metrics Write Error:", dailyError);
+        // We might choose to proceed, or fail. Let's fail safe 
+        // return { write_status: { success: false, error: dailyError.message } };
+    }
+
+    // 3. Process Granular Hourly Data (New Table)
     const chunkSize = 500;
     let inserted = 0;
-
-    // We can't actually do a massive loop inside one agent step if we want it fast, 
-    // but typically we await it.
     for (let i = 0; i < rows.length; i += chunkSize) {
         const chunk = rows.slice(i, i + chunkSize);
-
-        // Supabase upsert
         const { error } = await supabaseAdmin
             .from('facebook_ads_insights')
             .upsert(chunk, { onConflict: 'ad_id,date_start,hour' });
 
         if (error) {
-            console.error("A6 Write Error:", error);
-            // In strict mode we might stop, or we log partial failure
+            console.error("A6 Hourly Write Error:", error);
             return { write_status: { success: false, inserted_count: inserted, error: error.message } };
         }
         inserted += chunk.length;
     }
 
-    // Update Account Last Synced (Side effect)
+    // Update Account Last Synced
     if (state.config.ad_account_id) {
         await supabaseAdmin.from('accounts')
             .update({ last_synced_at: new Date().toISOString() })
