@@ -168,6 +168,60 @@ export async function GET(request: Request) {
 
                     runResults.push({ userId: token.user_id, account: account.account_id, status: 'success', insights: rawInsights.length });
 
+                    // ---------------------------------------------------------
+                    // 🧠 LANGGRAPH RUNTIME UPGRADE
+                    // ---------------------------------------------------------
+                    if (rawInsights.length > 0) {
+                        try {
+                            const { AgentOrchestrator } = await import('@/agents/orchestrator');
+
+                            // Map raw insights to Agent State format
+                            const agentInsights = records.map((r: any) => ({
+                                ad_id: r.ad_id,
+                                ad_name: r.ad_name,
+                                campaign_id: r.campaign_id,
+                                campaign_name: r.campaign_name,
+                                spend: r.spend,
+                                leads: r.leads,
+                                impressions: r.impressions,
+                                clicks: r.clicks
+                            }));
+
+                            const totalSpend = agentInsights.reduce((sum: number, r: any) => sum + r.spend, 0);
+                            const totalLeads = agentInsights.reduce((sum: number, r: any) => sum + r.leads, 0);
+                            const avgCpl = totalLeads > 0 ? totalSpend / totalLeads : 0;
+
+                            const orchestrator = new AgentOrchestrator({
+                                config: {
+                                    userId: token.user_id,
+                                    selected_account_id: account.account_id,
+                                    date_range: { start: 'last_30d', end: 'today', cycle_type: 'campaign' }
+                                },
+                                data: {
+                                    raw_insights: agentInsights,
+                                    aggregated_metrics: { total_spend: totalSpend, total_leads: totalLeads, avg_cpl: avgCpl }
+                                }
+                            });
+
+                            const finalState = await orchestrator.run();
+
+                            // Log the Intelligence Output
+                            if (finalState.intelligence.executive_summary) {
+                                console.log("\n--------- EXECUTIVE SUMMARY ---------");
+                                console.log(finalState.intelligence.executive_summary);
+                                console.log("-------------------------------------\n");
+                            }
+
+                            // Optional: Persist Summary to DB? 
+                            // Requirements didn't ask for DB persistence of summary, just "GlobalState".
+                            // For now, logging fulfills the "execution" aspect.
+
+                        } catch (agentError) {
+                            console.error("Agent Runtime Error:", agentError);
+                            // Do not crash the sync job if agents fail
+                        }
+                    }
+
                 } catch (accountErr: any) {
                     console.error(`Sync Error for Account ${account.account_id}`, accountErr);
                     runResults.push({ userId: token.user_id, account: account.account_id, status: 'error', error: accountErr.message });
