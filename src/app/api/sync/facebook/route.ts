@@ -101,126 +101,43 @@ export async function GET(request: Request) {
                 try {
                     console.log(`Syncing Account: ${account.name} (${account.account_id})`);
 
-                    const rawInsights = await FacebookService.getHourlyAdInsights(accessToken, account.account_id);
-                    console.log(`Fetched ${rawInsights.length} hourly records`);
+                    // ---------------------------------------------------------
+                    // 🧠 LANGGRAPH 10-AGENT PIPELINE
+                    // ---------------------------------------------------------
 
-                    // Transform & Upsert
-                    const records = rawInsights.map((row: any) => {
-                        // Parse Actions
-                        const actions = row.actions || [];
-                        const leads = actions.find((a: any) => a.action_type === 'lead' || a.action_type === 'offsite_conversion.lead')?.value || 0;
-                        const onFbLeads = actions.find((a: any) => a.action_type === 'leadgen')?.value || 0;
-                        // const msgConvos = actions.find((a: any) => a.action_type === 'onsite_conversion.messaging_conversation_started_7d')?.value || 0;
+                    // We now delegate the entire Sync & Intelligence flow to the Orchestrator.
+                    // The Orchestrator will run A4 (Ingest) and A6 (Upsert) internally.
+                    // We just provide the configuration.
 
-                        const totalLeads = Number(leads) + Number(onFbLeads);
-                        const spend = Number(row.spend || 0);
-                        const impressions = Number(row.impressions || 0);
-                        const reach = Number(row.reach || 0);
+                    const { AgentOrchestrator } = await import('@/agents/orchestrator');
 
-                        // Calculations
-                        const cpl = totalLeads > 0 ? spend / totalLeads : 0;
-                        const cpm = impressions > 0 ? (spend / impressions) * 1000 : 0;
-                        const frequency = reach > 0 ? impressions / reach : 0;
-
-                        // Parse Hour from Timezone String (e.g. "00:00:00 - 00:59:59")
-                        const timeRange = row.hourly_stats_aggregated_by_advertiser_time_zone || "00:00:00 - 00:59:59";
-                        const hourStr = timeRange.split(':')[0] || "00";
-                        const hour = parseInt(hourStr, 10);
-
-                        return {
+                    const orchestrator = new AgentOrchestrator({
+                        config: {
+                            userId: token.user_id,
+                            accessToken: accessToken, // Decrypted
                             ad_account_id: account.account_id,
-                            ad_account_name: account.name,
-                            campaign_id: row.campaign_id,
-                            campaign_name: row.campaign_name,
-                            adset_id: row.adset_id,
-                            adset_name: row.adset_name,
-                            ad_id: row.ad_id,
-                            ad_name: row.ad_name,
-                            date_start: row.date_start,
-                            hour: isNaN(hour) ? 0 : hour,
-                            reach,
-                            impressions,
-                            clicks: Number(row.clicks || 0),
-                            spend,
-                            leads: totalLeads,
-                            cpl,
-                            cpm,
-                            frequency
-                        };
+                            date_range: { start: 'last_30d', end: 'today', cycle_type: 'campaign' }
+                        }
                     });
 
-                    // Bulk Upsert (Chunking)
-                    const chunkSize = 100;
-                    for (let i = 0; i < records.length; i += chunkSize) {
-                        const chunk = records.slice(i, i + chunkSize);
-                        const { error } = await supabaseAdmin
-                            .from('facebook_ads_insights')
-                            .upsert(chunk, { onConflict: 'ad_id,date_start,hour' });
+                    const finalState = await orchestrator.run();
 
-                        if (error) {
-                            console.error('Upsert Error:', error);
-                            // Don't throw, log and continue
-                        }
+                    // Check results from the State
+                    if (finalState.write_status?.success) {
+                        runResults.push({ userId: token.user_id, account: account.account_id, status: 'success', insights: finalState.write_status.inserted_count });
+                    } else {
+                        // If Orchestrator failed or A6 failed
+                        const err = finalState.errors.join(', ') || finalState.write_status?.error || 'Unknown Pipeline Error';
+                        runResults.push({ userId: token.user_id, account: account.account_id, status: 'error', error: err });
                     }
 
-                    // Update Account Sync Time
-                    await supabaseAdmin.from('accounts').update({ last_synced_at: new Date().toISOString() }).eq('account_id', account.account_id);
-
-                    runResults.push({ userId: token.user_id, account: account.account_id, status: 'success', insights: rawInsights.length });
-
-                    // ---------------------------------------------------------
-                    // 🧠 LANGGRAPH RUNTIME UPGRADE
-                    // ---------------------------------------------------------
-                    if (rawInsights.length > 0) {
-                        try {
-                            const { AgentOrchestrator } = await import('@/agents/orchestrator');
-
-                            // Map raw insights to Agent State format
-                            const agentInsights = records.map((r: any) => ({
-                                ad_id: r.ad_id,
-                                ad_name: r.ad_name,
-                                campaign_id: r.campaign_id,
-                                campaign_name: r.campaign_name,
-                                spend: r.spend,
-                                leads: r.leads,
-                                impressions: r.impressions,
-                                clicks: r.clicks
-                            }));
-
-                            const totalSpend = agentInsights.reduce((sum: number, r: any) => sum + r.spend, 0);
-                            const totalLeads = agentInsights.reduce((sum: number, r: any) => sum + r.leads, 0);
-                            const avgCpl = totalLeads > 0 ? totalSpend / totalLeads : 0;
-
-                            const orchestrator = new AgentOrchestrator({
-                                config: {
-                                    userId: token.user_id,
-                                    selected_account_id: account.account_id,
-                                    date_range: { start: 'last_30d', end: 'today', cycle_type: 'campaign' }
-                                },
-                                data: {
-                                    raw_insights: agentInsights,
-                                    aggregated_metrics: { total_spend: totalSpend, total_leads: totalLeads, avg_cpl: avgCpl }
-                                }
-                            });
-
-                            const finalState = await orchestrator.run();
-
-                            // Log the Intelligence Output
-                            if (finalState.intelligence.executive_summary) {
-                                console.log("\n--------- EXECUTIVE SUMMARY ---------");
-                                console.log(finalState.intelligence.executive_summary);
-                                console.log("-------------------------------------\n");
-                            }
-
-                            // Optional: Persist Summary to DB? 
-                            // Requirements didn't ask for DB persistence of summary, just "GlobalState".
-                            // For now, logging fulfills the "execution" aspect.
-
-                        } catch (agentError) {
-                            console.error("Agent Runtime Error:", agentError);
-                            // Do not crash the sync job if agents fail
-                        }
+                    if (finalState.executive_summary) {
+                        console.log("\n--- EXECUTIVE REPORT ---");
+                        console.log(finalState.executive_summary);
+                        console.log("------------------------\n");
                     }
+
+                    // End of Loop for this Account
 
                 } catch (accountErr: any) {
                     console.error(`Sync Error for Account ${account.account_id}`, accountErr);

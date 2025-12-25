@@ -1,6 +1,7 @@
 import { GlobalState, createInitialState } from './types';
-import { SimulationAgent } from './core/SimulationAgent';
-import { ExecutiveSummaryAgent } from './core/ExecutiveSummaryAgent';
+import * as Validators from './core/ValidationAgents';
+import * as DataEngineers from './core/DataAgents';
+import * as Intelligence from './core/IntelligenceAgents';
 // IngestionAgent is effectively the existing Sync Logic wrapped
 // For this MVP refactor, we will inject the data from the existing sync job result into the state
 // rather than rewriting the entire sync job *inside* the agent file immediately, 
@@ -11,41 +12,39 @@ export class AgentOrchestrator {
     private state: GlobalState;
 
     constructor(initialData?: Partial<GlobalState>) {
-        this.state = { ...createInitialState(), ...initialData };
+        this.state = createInitialState(initialData);
     }
 
-    // The "Graph" runner
     async run() {
-        console.log("🚀 Orchestrator: Starting Run...");
+        console.log("🚀 Orchestrator: Starting 10-Agent Pipeline...");
 
         try {
-            // 1. Ingestion / Data Load (Mocked here or Passed in)
-            // In a real LangGraph, this would be a node. 
-            // Here we assume state.data is populated by the caller (Sync Job) or we fetch it.
-            // For Safety/Guardrail: Check if data exists.
-            if (this.state.data.raw_insights.length === 0) {
-                console.log("Orchestrator: No insights provided. Skipping simulation.");
-                return this.state;
-            }
+            // --- VALIDATION PHASE ---
+            this.state = { ...this.state, ...(await Validators.FacebookAuthAgent(this.state)) };
+            if (!this.state.auth_status?.valid) throw new Error(`A1 Failed: ${this.state.auth_status?.error}`);
 
-            // 2. Simulation Agent
-            console.log("🤖 Node: SimulationAgent");
-            const simResult = await SimulationAgent(this.state);
-            this.state = { ...this.state, ...simResult, intelligence: { ...this.state.intelligence, ...simResult.intelligence } };
+            this.state = { ...this.state, ...(await Validators.SupabaseSchemaAgent(this.state)) };
+            if (!this.state.schema_status?.valid) throw new Error(`A2 Failed: Schema Invalid`);
 
-            // 3. Executive Summary Agent
-            console.log("📝 Node: ExecutiveSummaryAgent");
-            const execResult = await ExecutiveSummaryAgent(this.state);
-            this.state = { ...this.state, ...execResult, intelligence: { ...this.state.intelligence, ...execResult.intelligence } };
+            this.state = { ...this.state, ...(await Validators.FacebookAccountAgent(this.state)) };
 
-            // 4. Persistence (Done by Caller for now, or we could add a PersistAgent)
+            // --- DATA PHASE ---
+            this.state = { ...this.state, ...(await DataEngineers.FacebookInsightsAgent(this.state)) };
+            this.state = { ...this.state, ...(await DataEngineers.MetricsComputeAgent(this.state)) };
+            this.state = { ...this.state, ...(await DataEngineers.SupabaseIngestAgent(this.state)) };
 
-            console.log("✅ Orchestrator: Run Complete.");
+            // --- INTELLIGENCE PHASE ---
+            this.state = { ...this.state, ...(await Intelligence.TestAgent(this.state)) };
+            this.state = { ...this.state, ...(await Intelligence.SimulationAgent(this.state)) };
+            this.state = { ...this.state, ...(await Intelligence.OptimizationAgent(this.state)) };
+            this.state = { ...this.state, ...(await Intelligence.ExecutiveSummaryAgent(this.state)) };
+
+            console.log("✅ Orchestrator: Pipeline Complete.");
             return this.state;
 
         } catch (error: any) {
             console.error("💥 Orchestrator Crashed:", error);
-            this.state.status.errors.push(error.message);
+            this.state.errors.push(error.message);
             return this.state;
         }
     }
