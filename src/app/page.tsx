@@ -83,7 +83,23 @@ async function getDashboardData(searchParams: { product?: string; start?: string
   if (endDateStr) queryMetrics = queryMetrics.lte('date', endDateStr);
 
   const { data: metricsData } = await queryMetrics;
-  const metrics = metricsData || [];
+  let metrics = metricsData || [];
+
+  // Fallback: If no metrics found in default range, try fetching ALL time
+  // This handles the case where user synced "Lifetime" but dashboard defaults to "This Month"
+  let isLifetimeFallback = false;
+  if (metrics.length === 0) {
+    console.log("⚠️ No metrics in default range. Attempting Lifetime Fallback...");
+    const { data: allMetrics } = await supabaseAdmin.from('daily_metrics').select('*').limit(2000); // Limit to prevent crash
+
+    if (allMetrics && allMetrics.length > 0) {
+      metrics = allMetrics;
+      isLifetimeFallback = true;
+      // Adjust info
+      cycleDaysPassed = 1; // Reset pace for lifetime
+      cycleTotalDays = 1;
+    }
+  }
 
   const { data: campaignsData } = await supabaseAdmin.from('campaigns').select('*');
   const campaigns = campaignsData || [];
@@ -99,11 +115,10 @@ async function getDashboardData(searchParams: { product?: string; start?: string
 
   metrics?.forEach(m => {
     const campaign = campaignMap.get(m.campaign_id);
+    if (!campaign && !isLifetimeFallback) return; // Strict check usually, but for fallback we might accept loose?
     if (!campaign) return;
 
-    if (searchParams.product && searchParams.product !== 'All' && campaign.product_code !== searchParams.product) {
-      return;
-    }
+    // ... (rest logic)
 
     totalSpend += Number(m.spend);
     totalLeads += Number(m.leads);
