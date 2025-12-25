@@ -53,8 +53,19 @@ export async function POST(request: Request) {
 
         const { AgentOrchestrator } = await import('@/agents/orchestrator');
 
-        // Parse Sync Range
-        const dateStart = syncDays ? `last_${syncDays}d` : 'last_30d';
+        // Parse Sync Range to Valid FB Presets
+        let dateStart = 'last_30d'; // default
+        const days = Number(syncDays);
+
+        if (days === 7) dateStart = 'last_7d';
+        else if (days === 30) dateStart = 'last_30d';
+        else if (days === 90) dateStart = 'last_90d';
+        else if (days > 90) {
+            // For > 90 days (180, 365, 3650), we must use 'maximum' or 'lifetime'
+            // Facebook API uses 'maximum' for Insights API date_preset in some contexts, but 'lifetime' is standard.
+            // Let's use 'maximum' as it often maps to "All available data" better in v18
+            dateStart = 'maximum';
+        }
 
         const orchestrator = new AgentOrchestrator({
             config: {
