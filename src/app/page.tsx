@@ -1,9 +1,11 @@
 
+import Link from 'next/link';
 import { supabaseAdmin } from '@/utils/supabase/admin';
 import { ExecutiveSummary } from '@/components/dashboard/ExecutiveSummary';
 import { ProductPerformance } from '@/components/dashboard/ProductPerformance';
 import { CampaignOptimization } from '@/components/dashboard/CampaignOptimization';
 import { DashboardFilters } from '@/components/dashboard/DashboardFilters';
+import FacebookConnectStatus from '@/components/dashboard/FacebookConnectStatus';
 import { getCycleDates, CycleMode, formatDateForInput } from '@/utils/cycles';
 
 export const revalidate = 0;
@@ -160,6 +162,9 @@ export default async function DashboardPage(props: { searchParams: Promise<{ pro
   const searchParams = await props.searchParams;
   const data = await getDashboardData(searchParams);
 
+  // Mock User ID for 'No-Admin' context - In real app, get from session
+  const userId = 'user-123';
+
   return (
     <div className="flex min-h-screen flex-col bg-slate-50 p-8">
       <div className="flex items-center justify-between space-y-2 mb-8">
@@ -170,8 +175,9 @@ export default async function DashboardPage(props: { searchParams: Promise<{ pro
             (Day {data.cycleInfo.daysPassed} of {data.cycleInfo.total})
           </p>
         </div>
-        <div className="flex items-center space-x-2">
-          <span className="text-sm text-muted-foreground">Last Synced: Just now</span>
+        <div className="flex items-center space-x-4">
+          <FacebookConnectStatus userId={userId} />
+          <span className="text-sm text-muted-foreground border-l pl-4">Last Synced: Just now</span>
         </div>
       </div>
 

@@ -12,12 +12,24 @@ create table products (
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
--- 2. ACCOUNTS TABLE
--- Stores Facebook Ad Account Token (One row per account)
+-- 2. FACEBOOK TOKENS TABLE (New Identity Source)
+-- Stores User OAuth Tokens (One per User)
+create table facebook_tokens (
+  id uuid default uuid_generate_v4() primary key,
+  user_id uuid not null, -- references auth.users(id) but we might keep it loose if using custom auth, strictly it should link to Supabase Auth
+  encrypted_access_token text not null,
+  expires_at timestamp with time zone,
+  is_valid boolean default true,
+  last_refreshed_at timestamp with time zone default timezone('utc'::text, now()),
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+-- 3. ACCOUNTS TABLE
+-- Stores Facebook Ad Account Metadata linked to a Token
 create table accounts (
   account_id text primary key,
   name text,
-  access_token text not null, -- Long-lived token
+  token_id uuid references facebook_tokens(id), -- Link to the token used to fetch this account
   is_active boolean default true,
   last_synced_at timestamp with time zone,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
