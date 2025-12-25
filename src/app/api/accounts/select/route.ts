@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/utils/supabase/admin';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 60; // Attempt to extend Vercel timeout
 
 export async function POST(request: Request) {
     try {
@@ -64,10 +65,22 @@ export async function POST(request: Request) {
             }
         });
 
-        // Run async (fire and forget to return response fast, OR await if we want to guarantee data?)
+        // Run async with race condition
         // User expects data immediately. Await it. (Vercel timeout risk, but acceptable for MVP 1-account sync)
         try {
-            const finalState = await orchestrator.run();
+            const syncPromise = orchestrator.run();
+            const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve('TIMEOUT'), 8000));
+
+            const result = await Promise.race([syncPromise, timeoutPromise]);
+
+            if (result === 'TIMEOUT') {
+                console.log("⚠️ Sync taking longer than 8s, returning early to client...");
+                // Note: In strict Serverless, the background process might be paused/killed here. 
+                // But this prevents the 504 Gateway Timeout error on the client.
+                return NextResponse.json({ success: true, selected: accountId, synced: 'background', message: "Sync started in background" });
+            }
+
+            const finalState = result as any;
             if (!finalState.write_status?.success) {
                 console.error("Sync partial failure:", finalState.errors);
             }
