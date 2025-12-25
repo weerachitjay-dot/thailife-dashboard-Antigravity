@@ -57,9 +57,14 @@ async function getDashboardData(searchParams: { product?: string; start?: string
   if (startDateStr) queryMetrics = queryMetrics.gte('date', startDateStr);
   if (endDateStr) queryMetrics = queryMetrics.lte('date', endDateStr);
 
-  const { data: metrics } = await queryMetrics;
-  const { data: campaigns } = await supabaseAdmin.from('campaigns').select('*');
-  const { data: products } = await supabaseAdmin.from('products').select('*');
+  const { data: metricsData } = await queryMetrics;
+  const metrics = metricsData || [];
+
+  const { data: campaignsData } = await supabaseAdmin.from('campaigns').select('*');
+  const campaigns = campaignsData || [];
+
+  const { data: productsData } = await supabaseAdmin.from('products').select('*');
+  const products = productsData || [];
 
   // Aggregation Logic
   const campaignMap = new Map(campaigns?.map(c => [c.id, c]) || []);
