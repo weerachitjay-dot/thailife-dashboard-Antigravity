@@ -229,6 +229,19 @@ export default async function DashboardPage(props: { searchParams: Promise<{ pro
 
       <DashboardFilters />
 
+      {data.summary.spend === 0 && (
+        <div className="rounded-lg border border-dashed p-8 text-center animate-in fade-in-50 mb-8">
+          <div className="flex flex-col items-center gap-2">
+            <h3 className="text-lg font-semibold">No Data Available</h3>
+            <p className="text-muted-foreground mb-4">
+              Your dashboard looks empty. Sync data from Facebook to get started.
+              (If you just synced, try refreshing the page).
+            </p>
+            <SyncButton userId={userId} selectedAccountId={data.selectedAccountId} />
+          </div>
+        </div>
+      )}
+
       <div className="space-y-4">
         <ExecutiveSummary data={data.summary} />
 
