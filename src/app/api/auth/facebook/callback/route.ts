@@ -85,6 +85,7 @@ export async function GET(req: Request) {
                 token_id: tokenId,
                 is_active: true,
                 updated_at: new Date().toISOString()
+                // is_selected is NOT updated here, preserving state or defaulting to false for new rows
             }, { onConflict: 'account_id' });
         }
 

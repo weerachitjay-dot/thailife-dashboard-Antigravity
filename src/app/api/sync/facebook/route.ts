@@ -83,86 +83,98 @@ export async function GET(request: Request) {
                 }
             }
 
-            // 4. Fetch Linked Accounts
+            // 4. Fetch Linked & SELECTED Accounts
             const { data: accounts } = await supabaseAdmin
                 .from('accounts')
                 .select('*')
                 .eq('token_id', token.id)
-                .eq('is_active', true);
+                .eq('is_active', true)
+                .eq('is_selected', true); // CRITICAL: Only sync selected account
 
             if (!accounts || accounts.length === 0) {
-                console.log(`No active accounts for token ${token.id}`);
+                console.log(`No selected accounts for token ${token.id}`);
                 continue;
             }
 
-            // 5. Sync Loop (Existing Logic Adapted)
-            const fbService = new FacebookService(accessToken);
-
+            // 5. Sync Selected Account (Hourly Data)
             for (const account of accounts) {
                 try {
-                    // A. Fetch Campaigns
-                    const fbCampaigns = await fbService.getCampaigns(account.account_id);
+                    console.log(`Syncing Account: ${account.name} (${account.account_id})`);
 
-                    for (const camp of fbCampaigns) {
-                        const parsed = parseCampaignName(camp.name);
-                        await supabaseAdmin.from('campaigns').upsert({
-                            fb_campaign_id: camp.id,
-                            account_id: account.account_id,
-                            name: camp.name,
-                            status: camp.status,
-                            start_date: camp.start_time ? camp.start_time.split('T')[0] : null,
-                            product_code: parsed.productCode !== 'Unknown' ? parsed.productCode : null,
-                            objective: parsed.objective,
-                            audience: parsed.audience,
-                            updated_at: new Date().toISOString()
-                        }, { onConflict: 'fb_campaign_id' });
+                    const rawInsights = await FacebookService.getHourlyAdInsights(accessToken, account.account_id);
+                    console.log(`Fetched ${rawInsights.length} hourly records`);
+
+                    // Transform & Upsert
+                    const records = rawInsights.map((row: any) => {
+                        // Parse Actions
+                        const actions = row.actions || [];
+                        const leads = actions.find((a: any) => a.action_type === 'lead' || a.action_type === 'offsite_conversion.lead')?.value || 0;
+                        const onFbLeads = actions.find((a: any) => a.action_type === 'leadgen')?.value || 0;
+                        // const msgConvos = actions.find((a: any) => a.action_type === 'onsite_conversion.messaging_conversation_started_7d')?.value || 0;
+
+                        const totalLeads = Number(leads) + Number(onFbLeads);
+                        const spend = Number(row.spend || 0);
+                        const impressions = Number(row.impressions || 0);
+                        const reach = Number(row.reach || 0);
+
+                        // Calculations
+                        const cpl = totalLeads > 0 ? spend / totalLeads : 0;
+                        const cpm = impressions > 0 ? (spend / impressions) * 1000 : 0;
+                        const frequency = reach > 0 ? impressions / reach : 0;
+
+                        // Parse Hour from Timezone String (e.g. "00:00:00 - 00:59:59")
+                        const timeRange = row.hourly_stats_aggregated_by_advertiser_time_zone || "00:00:00 - 00:59:59";
+                        const hourStr = timeRange.split(':')[0] || "00";
+                        const hour = parseInt(hourStr, 10);
+
+                        return {
+                            ad_account_id: account.account_id,
+                            ad_account_name: account.name,
+                            campaign_id: row.campaign_id,
+                            campaign_name: row.campaign_name,
+                            adset_id: row.adset_id,
+                            adset_name: row.adset_name,
+                            ad_id: row.ad_id,
+                            ad_name: row.ad_name,
+                            date_start: row.date_start,
+                            hour: isNaN(hour) ? 0 : hour,
+                            reach,
+                            impressions,
+                            clicks: Number(row.clicks || 0),
+                            spend,
+                            leads: totalLeads,
+                            cpl,
+                            cpm,
+                            frequency
+                        };
+                    });
+
+                    // Bulk Upsert (Chunking)
+                    const chunkSize = 100;
+                    for (let i = 0; i < records.length; i += chunkSize) {
+                        const chunk = records.slice(i, i + chunkSize);
+                        const { error } = await supabaseAdmin
+                            .from('facebook_ads_insights')
+                            .upsert(chunk, { onConflict: 'ad_id,date_start,hour' });
+
+                        if (error) {
+                            console.error('Upsert Error:', error);
+                            // Don't throw, log and continue
+                        }
                     }
 
-                    // B. Fetch Insights
-                    const today = new Date();
-                    const threeDaysAgo = new Date();
-                    threeDaysAgo.setDate(today.getDate() - 3);
-                    const since = threeDaysAgo.toISOString().split('T')[0];
-                    const until = today.toISOString().split('T')[0];
+                    // Update Account Sync Time
+                    await supabaseAdmin.from('accounts').update({ last_synced_at: new Date().toISOString() }).eq('account_id', account.account_id);
 
-                    const insights = await fbService.getInsights(account.account_id, since, until);
-
-                    // Fetch IDs map
-                    const { data: dbCamps } = await supabaseAdmin.from('campaigns').select('id, fb_campaign_id').eq('account_id', account.account_id);
-                    const campMap = new Map(dbCamps?.map(c => [c.fb_campaign_id, c.id]));
-
-                    const metricsPayload = [];
-                    for (const insight of insights) {
-                        const internalId = campMap.get(insight.campaign_id);
-                        if (!internalId) continue;
-
-                        const transformed = transformInsight(insight, '');
-                        metricsPayload.push({
-                            campaign_id: internalId,
-                            date: transformed.date,
-                            spend: transformed.spend,
-                            impressions: transformed.impressions,
-                            clicks: transformed.clicks,
-                            leads: transformed.leads,
-                            cpl: transformed.cpl
-                        });
-                    }
-
-                    if (metricsPayload.length > 0) {
-                        await supabaseAdmin.from('daily_metrics').upsert(metricsPayload, { onConflict: 'campaign_id,date' });
-                    }
-
-                    runResults.push({ userId: token.user_id, account: account.account_id, status: 'success', insights: insights.length });
+                    runResults.push({ userId: token.user_id, account: account.account_id, status: 'success', insights: rawInsights.length });
 
                 } catch (accountErr: any) {
                     console.error(`Sync Error for Account ${account.account_id}`, accountErr);
                     runResults.push({ userId: token.user_id, account: account.account_id, status: 'error', error: accountErr.message });
 
-                    // If Auth Error, invalidate Token?
-                    // FacebookService throws "FB API Error". Check message?
                     if (accountErr.message.includes('Error validating access token') || accountErr.message.includes('Session has expired')) {
                         await supabaseAdmin.from('facebook_tokens').update({ is_valid: false }).eq('id', token.id);
-                        break; // Stop processing this token
+                        break;
                     }
                 }
             }

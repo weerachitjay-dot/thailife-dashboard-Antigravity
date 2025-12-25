@@ -30,7 +30,8 @@ create table accounts (
   account_id text primary key,
   name text,
   token_id uuid references facebook_tokens(id), -- Link to the token used to fetch this account
-  is_active boolean default true,
+  is_active boolean default true, -- FB status
+  is_selected boolean default false, -- User selection for sync
   last_synced_at timestamp with time zone,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
@@ -75,6 +76,46 @@ create table daily_metrics (
   
   unique(campaign_id, date) -- Prevent duplicate stats for same day/campaign
 );
+
+-- 5. HOURLY ADS INSIGHTS TABLE (Granular Data)
+-- Stores hourly performance data at the Ad Level
+create table facebook_ads_insights (
+  id uuid default uuid_generate_v4() primary key,
+  
+  -- Dimensions
+  ad_account_id text not null,
+  ad_account_name text,
+  campaign_id text,
+  campaign_name text,
+  adset_id text,
+  adset_name text,
+  ad_id text not null,
+  ad_name text,
+  date_start date not null,
+  hour int not null, -- 0-23 (Advertiser Timezone)
+  
+  -- Metrics
+  reach bigint default 0,
+  impressions bigint default 0,
+  clicks bigint default 0,
+  spend numeric(12, 2) default 0,
+  
+  -- Actions
+  leads bigint default 0, -- Combined (Website + On-Facebook)
+  
+  -- Calculated (Server-side populated)
+  cpl numeric(10, 2) default 0,
+  cpm numeric(10, 2) default 0,
+  frequency numeric(5, 2) default 0,
+  
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  
+  unique(ad_id, date_start, hour) -- Prevent duplicates
+);
+
+-- RLS
+alter table facebook_ads_insights enable row level security;
+create policy "Allow read access for authenticated users" on facebook_ads_insights for select using (auth.role() = 'authenticated');
 
 -- RLS Policies (Basic Secure Setup)
 alter table products enable row level security;

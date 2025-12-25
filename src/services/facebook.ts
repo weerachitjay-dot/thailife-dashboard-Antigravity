@@ -108,6 +108,46 @@ export class FacebookService {
         if (data.error) throw new Error(`Get Ad Accounts Error: ${data.error.message}`);
         return data.data || [];
     }
+
+    static async getHourlyAdInsights(accessToken: string, accountId: string): Promise<any[]> {
+        // Fetch raw data with hourly breakdown
+        const fields = [
+            'campaign_id', 'campaign_name',
+            'adset_id', 'adset_name',
+            'ad_id', 'ad_name',
+            'reach', 'impressions', 'clicks', 'spend',
+            'actions',
+            'action_values'
+        ].join(',');
+
+        const breakdowns = 'hourly_stats_aggregated_by_advertiser_time_zone';
+        // Use last_30d to get recent data. Filter later if needed.
+        const datePreset = 'last_30d';
+
+        const url = `https://graph.facebook.com/${FB_API_VERSION}/act_${accountId}/insights?level=ad&fields=${fields}&breakdowns=${breakdowns}&date_preset=${datePreset}&access_token=${accessToken}&limit=500`;
+
+        let allData: any[] = [];
+        let nextUrl = url;
+
+        // Pagination Loop
+        while (nextUrl) {
+            const res = await fetch(nextUrl);
+            const json = await res.json();
+
+            if (json.error) {
+                console.error("Facebook Insights Error:", json.error);
+                throw new Error(json.error.message);
+            }
+
+            if (json.data) {
+                allData = [...allData, ...json.data];
+            }
+
+            nextUrl = json.paging?.next || null;
+        }
+
+        return allData;
+    }
 }
 
 /**

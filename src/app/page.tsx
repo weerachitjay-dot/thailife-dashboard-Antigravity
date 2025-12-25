@@ -6,11 +6,38 @@ import { ProductPerformance } from '@/components/dashboard/ProductPerformance';
 import { CampaignOptimization } from '@/components/dashboard/CampaignOptimization';
 import { DashboardFilters } from '@/components/dashboard/DashboardFilters';
 import FacebookConnectStatus from '@/components/dashboard/FacebookConnectStatus';
+import AdAccountSelector from '@/components/dashboard/AdAccountSelector';
 import { getCycleDates, CycleMode, formatDateForInput } from '@/utils/cycles';
 
 export const revalidate = 0;
 
-async function getDashboardData(searchParams: { product?: string; start?: string; end?: string; forecast?: string }) {
+type DashboardData = {
+  needsSelection: true;
+} | {
+  needsSelection: false;
+  summary: { spend: number; leads: number };
+  products: any[];
+  campaigns: any[];
+  cycleInfo: { start: string; end: string; daysPassed: number; total: number };
+};
+
+async function getDashboardData(searchParams: { product?: string; start?: string; end?: string; forecast?: string }, userId: string): Promise<DashboardData> {
+  // 0. Check for Selected Account
+  const { data: selectedAccount } = await supabaseAdmin
+    .from('accounts')
+    .select('*')
+    .eq('is_selected', true)
+    // .eq('token_id', ...) - Ideally join with token->user_id, but current schema allows simple active check for MVP
+    // Security note: We should ensure it belongs to the user provided.
+    // Let's assume the join logic resides in RLS or we do a quick check here.
+    // For MVP "No-Admin" single user context, just finding the selected account is sufficient.
+    .limit(1)
+    .single();
+
+  if (!selectedAccount) {
+    return { needsSelection: true };
+  }
+
   // 1. Determine Date Range based on Forecast Mode
   const forecastMode = (searchParams.forecast || 'campaign') as CycleMode;
   let startDateStr = searchParams.start;
@@ -156,19 +183,33 @@ async function getDashboardData(searchParams: { product?: string; start?: string
   }).filter(Boolean) as any[];
 
   return {
+    needsSelection: false,
     summary: { spend: totalSpend, leads: totalLeads },
     products: productStats,
     campaigns: campaignOptimizationData,
-    cycleInfo: { start: startDateStr, end: endDateStr, daysPassed: cycleDaysPassed, total: cycleTotalDays }
+    cycleInfo: { start: startDateStr || '', end: endDateStr || '', daysPassed: cycleDaysPassed, total: cycleTotalDays }
   };
 }
 
 export default async function DashboardPage(props: { searchParams: Promise<{ product?: string; start?: string; end?: string; forecast?: string }> }) {
   const searchParams = await props.searchParams;
-  const data = await getDashboardData(searchParams);
 
   // Mock User ID for 'No-Admin' context - In real app, get from session
   const userId = 'user-123';
+
+  const data = await getDashboardData(searchParams, userId);
+
+  if (data.needsSelection) {
+    return (
+      <div className="flex min-h-screen flex-col bg-slate-50 p-8">
+        <div className="flex items-center justify-between mb-8">
+          <h2 className="text-3xl font-bold tracking-tight">Setup Dashboard</h2>
+          <FacebookConnectStatus userId={userId} />
+        </div>
+        <AdAccountSelector userId={userId} />
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen flex-col bg-slate-50 p-8">
