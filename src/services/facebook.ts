@@ -141,8 +141,8 @@ export class FacebookService {
             const json = await res.json();
 
             if (json.error) {
-                console.error("Facebook Insights Error:", json.error);
-                throw new Error(json.error.message);
+                console.error("❌ Facebook Insights Error:", JSON.stringify(json.error, null, 2));
+                throw new Error(`FB Error [${json.error.code}]: ${json.error.message} (Trace: ${json.error.fbtrace_id})`);
             }
 
             if (json.data) {
