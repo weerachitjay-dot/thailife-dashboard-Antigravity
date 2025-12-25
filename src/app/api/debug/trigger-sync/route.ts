@@ -51,12 +51,12 @@ export async function GET(request: Request) {
                 userId: userId,
                 accessToken: accessToken,
                 ad_account_id: account.account_id,
-                // Using 'maximum' (FacebookService will drop hourly to avoid 90d limit)
-                date_range: { start: 'maximum', end: 'today', cycle_type: 'campaign' }
+                // Testing smaller range as requested by user to verify Supabase write
+                date_range: { start: 'last_7d', end: 'today', cycle_type: 'campaign' }
             }
         });
 
-        report("🔄 Orchestrator Started (Preset: maximum)");
+        report("🔄 Orchestrator Started (Preset: last_7d)");
 
         // AWAIT FULLY - No Race Condition
         const result = await orchestrator.run();
