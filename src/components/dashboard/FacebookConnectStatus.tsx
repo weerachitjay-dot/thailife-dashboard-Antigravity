@@ -20,22 +20,7 @@ export default function FacebookConnectStatus({ userId }: { userId: string }) {
     }, [userId]);
 
     const handleReconnect = () => {
-        // Trigger FB OAuth flow. 
-        // In a real app, this redirects to FB Dialog.
-        // For now, we can alert or log, as the full OAuth client-side setup needs client ID.
-        // We can assume a window.location.href to a route that redirects to FB.
-        // e.g. /api/auth/facebook/login (which we haven't built, or just direct link)
-        // Let's assume user has a login handler or we provide the link.
-        const clientId = process.env.NEXT_PUBLIC_FACEBOOK_CLIENT_ID; // Need to ensure this is exposed
-        const redirectUri = typeof window !== 'undefined' ? `${window.location.origin}/api/auth/facebook/callback` : '';
-
-        if (!clientId) {
-            alert('Missing NEXT_PUBLIC_FACEBOOK_CLIENT_ID');
-            return;
-        }
-
-        const fbUrl = `https://www.facebook.com/v18.0/dialog/oauth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=ads_read,read_insights`;
-        window.location.href = fbUrl;
+        window.location.href = '/api/auth/facebook/login';
     };
 
     if (status === 'loading') return <div className="text-xs text-gray-500">Checking connection...</div>;
