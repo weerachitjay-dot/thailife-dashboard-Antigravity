@@ -27,7 +27,7 @@ export default function FacebookConnectStatus({ userId }: { userId: string }) {
         // e.g. /api/auth/facebook/login (which we haven't built, or just direct link)
         // Let's assume user has a login handler or we provide the link.
         const clientId = process.env.NEXT_PUBLIC_FACEBOOK_CLIENT_ID; // Need to ensure this is exposed
-        const redirectUri = typeof window !== 'undefined' ? `${window.location.origin}/facebook/callback` : '';
+        const redirectUri = typeof window !== 'undefined' ? `${window.location.origin}/api/auth/facebook/callback` : '';
 
         if (!clientId) {
             alert('Missing NEXT_PUBLIC_FACEBOOK_CLIENT_ID');
