@@ -51,12 +51,12 @@ export async function GET(request: Request) {
                 userId: userId,
                 accessToken: accessToken,
                 ad_account_id: account.account_id,
-                // Using 'lifetime' as FB presets like 'maximum' can be finicky in specific API versions
-                date_range: { start: 'lifetime', end: 'today', cycle_type: 'campaign' }
+                // Using 'maximum' (FacebookService will drop hourly to avoid 90d limit)
+                date_range: { start: 'maximum', end: 'today', cycle_type: 'campaign' }
             }
         });
 
-        report("🔄 Orchestrator Started (Preset: lifetime)");
+        report("🔄 Orchestrator Started (Preset: maximum)");
 
         // AWAIT FULLY - No Race Condition
         const result = await orchestrator.run();

@@ -120,7 +120,12 @@ export class FacebookService {
             'action_values'
         ].join(',');
 
-        const breakdowns = 'hourly_stats_aggregated_by_advertiser_time_zone';
+        let breakdowns = 'hourly_stats_aggregated_by_advertiser_time_zone';
+        if (datePreset === 'maximum') {
+            // Hourly breakdown not supported for ranges > 90 days.
+            // We disable it for 'maximum' to allow fetching full lifetime history.
+            breakdowns = '';
+        }
         // Use provided preset or default
         // If preset is 'maximum', FB uses distinct param or logic. 
         // For 'maximum', we should use 'maximum' as value for date_preset if API supports it, or use time_range.
