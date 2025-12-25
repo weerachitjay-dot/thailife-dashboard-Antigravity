@@ -110,8 +110,10 @@ export class FacebookService {
     }
 
     static async getHourlyAdInsights(accessToken: string, accountId: string, datePreset: string = 'last_30d'): Promise<any[]> {
-        // Fetch raw data with hourly breakdown
-        let breakdowns = 'hourly_stats_aggregated_by_advertiser_time_zone';
+        // OPTIMIZATION: "Please reduce the amount of data" (Error 1) is caused by Hourly Breakdowns on large accounts.
+        // We are disabling hourly breakdowns GLOBALLY to ensure stability.
+        // The dashboard works fine with Daily data (which is the default when no breakdown is specified).
+        let breakdowns = '';
         let level = 'ad';
 
         // Base fields (Campaign Level)
