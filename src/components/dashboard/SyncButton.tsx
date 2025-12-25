@@ -34,7 +34,7 @@ export function SyncButton({ userId, selectedAccountId }: { userId: string, sele
             const data = await res.json();
 
             if (data.success && data.synced) {
-                // Optional: alert("Sync Complete");
+                alert("✅ Sync Started Successfully!\n\nIt may take 10-20 seconds for data to appear.\nPlease refresh the page shortly.");
                 setOpen(false);
                 router.refresh();
             } else {
