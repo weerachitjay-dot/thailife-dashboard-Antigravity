@@ -124,7 +124,11 @@ export class FacebookService {
         // Use last_30d to get recent data. Filter later if needed.
         const datePreset = 'last_30d';
 
-        const url = `https://graph.facebook.com/${FB_API_VERSION}/act_${accountId}/insights?level=ad&fields=${fields}&breakdowns=${breakdowns}&date_preset=${datePreset}&access_token=${accessToken}&limit=500`;
+        // Sanitize Account ID (Handle 'act_' prefix)
+        const cleanAccId = accountId.replace(/^act_/, '');
+        const targetId = `act_${cleanAccId}`;
+
+        const url = `https://graph.facebook.com/${FB_API_VERSION}/${targetId}/insights?level=ad&fields=${fields}&breakdowns=${breakdowns}&date_preset=${datePreset}&access_token=${accessToken}&limit=500`;
 
         let allData: any[] = [];
         let nextUrl = url;
