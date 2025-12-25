@@ -7,6 +7,7 @@ import { CampaignOptimization } from '@/components/dashboard/CampaignOptimizatio
 import { DashboardFilters } from '@/components/dashboard/DashboardFilters';
 import FacebookConnectStatus from '@/components/dashboard/FacebookConnectStatus';
 import AdAccountSelector from '@/components/dashboard/AdAccountSelector';
+import { SyncButton } from '@/components/dashboard/SyncButton';
 import { getCycleDates, CycleMode, formatDateForInput } from '@/utils/cycles';
 
 export const revalidate = 0;
@@ -15,6 +16,7 @@ type DashboardData = {
   needsSelection: true;
 } | {
   needsSelection: false;
+  selectedAccountId: string;
   summary: { spend: number; leads: number };
   products: any[];
   campaigns: any[];
@@ -27,10 +29,6 @@ async function getDashboardData(searchParams: { product?: string; start?: string
     .from('accounts')
     .select('*')
     .eq('is_selected', true)
-    // .eq('token_id', ...) - Ideally join with token->user_id, but current schema allows simple active check for MVP
-    // Security note: We should ensure it belongs to the user provided.
-    // Let's assume the join logic resides in RLS or we do a quick check here.
-    // For MVP "No-Admin" single user context, just finding the selected account is sufficient.
     .limit(1)
     .single();
 
@@ -184,6 +182,7 @@ async function getDashboardData(searchParams: { product?: string; start?: string
 
   return {
     needsSelection: false,
+    selectedAccountId: selectedAccount.account_id,
     summary: { spend: totalSpend, leads: totalLeads },
     products: productStats,
     campaigns: campaignOptimizationData,
@@ -223,6 +222,7 @@ export default async function DashboardPage(props: { searchParams: Promise<{ pro
         </div>
         <div className="flex items-center space-x-4">
           <FacebookConnectStatus userId={userId} />
+          <SyncButton userId={userId} selectedAccountId={data.selectedAccountId} />
           <span className="text-sm text-muted-foreground border-l pl-4">Last Synced: Just now</span>
         </div>
       </div>
