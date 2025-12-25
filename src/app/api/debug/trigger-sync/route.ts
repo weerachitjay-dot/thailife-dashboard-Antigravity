@@ -51,12 +51,13 @@ export async function GET(request: Request) {
                 userId: userId,
                 accessToken: accessToken,
                 ad_account_id: account.account_id,
-                // Testing smaller range as requested by user to verify Supabase write
-                date_range: { start: 'last_7d', end: 'today', cycle_type: 'campaign' }
+                // Reverting to 'maximum' now that we've optimized it (Campaign Level) to avoid timeouts.
+                // This allows the debug route to serve as a full "Master Sync".
+                date_range: { start: 'maximum', end: 'today', cycle_type: 'campaign' }
             }
         });
 
-        report("🔄 Orchestrator Started (Preset: last_7d)");
+        report("🔄 Orchestrator Started (Preset: maximum)");
 
         // AWAIT FULLY - No Race Condition
         const result = await orchestrator.run();
