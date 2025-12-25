@@ -10,7 +10,10 @@ export const FacebookInsightsAgent = async (state: GlobalState): Promise<Partial
 
     try {
         // Calls the service we already implemented
-        const raw = await FacebookService.getHourlyAdInsights(accessToken, ad_account_id);
+        // Extract preset from config range (e.g. 'last_30d', 'maximum')
+        const preset = state.config.date_range?.start || 'last_30d';
+        console.log(`   -> Fetching for preset: ${preset}`);
+        const raw = await FacebookService.getHourlyAdInsights(accessToken, ad_account_id, preset);
         console.log(`   -> Fetched ${raw.length} raw records.`);
         return { raw_insights: raw };
     } catch (e: any) {

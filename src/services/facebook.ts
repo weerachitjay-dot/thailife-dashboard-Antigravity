@@ -109,7 +109,7 @@ export class FacebookService {
         return data.data || [];
     }
 
-    static async getHourlyAdInsights(accessToken: string, accountId: string): Promise<any[]> {
+    static async getHourlyAdInsights(accessToken: string, accountId: string, datePreset: string = 'last_30d'): Promise<any[]> {
         // Fetch raw data with hourly breakdown
         const fields = [
             'campaign_id', 'campaign_name',
@@ -121,8 +121,10 @@ export class FacebookService {
         ].join(',');
 
         const breakdowns = 'hourly_stats_aggregated_by_advertiser_time_zone';
-        // Use last_30d to get recent data. Filter later if needed.
-        const datePreset = 'last_30d';
+        // Use provided preset or default
+        // If preset is 'maximum', FB uses distinct param or logic. 
+        // For 'maximum', we should use 'maximum' as value for date_preset if API supports it, or use time_range.
+        // Insights API date_preset supports: today, yesterday, this_month, last_month, last_30d, last_90d, last_year, maximum.
 
         // Sanitize Account ID (Handle 'act_' prefix)
         const cleanAccId = accountId.replace(/^act_/, '');
