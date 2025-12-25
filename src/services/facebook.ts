@@ -111,31 +111,34 @@ export class FacebookService {
 
     static async getHourlyAdInsights(accessToken: string, accountId: string, datePreset: string = 'last_30d'): Promise<any[]> {
         // Fetch raw data with hourly breakdown
-        const fields = [
-            'campaign_id', 'campaign_name',
-            'adset_id', 'adset_name',
-            'ad_id', 'ad_name',
-            'reach', 'impressions', 'clicks', 'spend',
-            'actions',
-            'action_values'
-        ].join(',');
-
         let breakdowns = 'hourly_stats_aggregated_by_advertiser_time_zone';
+        let level = 'ad';
+
+        // Base fields (Campaign Level)
+        const baseFields = [
+            'campaign_id', 'campaign_name',
+            'reach', 'impressions', 'clicks', 'spend',
+            'actions', 'action_values'
+        ];
+
+        // Ad Level Fields
+        const adFields = ['adset_id', 'adset_name', 'ad_id', 'ad_name'];
+
         if (datePreset === 'maximum') {
-            // Hourly breakdown not supported for ranges > 90 days.
-            // We disable it for 'maximum' to allow fetching full lifetime history.
+            // OPTIMIZATION: For Lifetime Sync (maximum), we switch to CAMPAIGN Level.
+            // fetching ad-level data for lifetime causes Vercel Timeouts (504).
+            // Dashboard only needs Campaign-level data for the main view.
             breakdowns = '';
+            level = 'campaign';
         }
-        // Use provided preset or default
-        // If preset is 'maximum', FB uses distinct param or logic. 
-        // For 'maximum', we should use 'maximum' as value for date_preset if API supports it, or use time_range.
-        // Insights API date_preset supports: today, yesterday, this_month, last_month, last_30d, last_90d, last_year, maximum.
+
+        const fields = (level === 'ad' ? [...baseFields, ...adFields] : baseFields).join(',');
 
         // Sanitize Account ID (Handle 'act_' prefix)
         const cleanAccId = accountId.replace(/^act_/, '');
         const targetId = `act_${cleanAccId}`;
 
-        const url = `https://graph.facebook.com/${FB_API_VERSION}/${targetId}/insights?level=ad&fields=${fields}&breakdowns=${breakdowns}&date_preset=${datePreset}&access_token=${accessToken}&limit=500`;
+        const url = `https://graph.facebook.com/${FB_API_VERSION}/${targetId}/insights?level=${level}&fields=${fields}&breakdowns=${breakdowns}&date_preset=${datePreset}&access_token=${accessToken}&limit=500`;
 
         let allData: any[] = [];
         let nextUrl = url;

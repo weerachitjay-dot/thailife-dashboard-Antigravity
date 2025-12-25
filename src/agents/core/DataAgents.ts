@@ -53,10 +53,10 @@ export const MetricsComputeAgent = async (state: GlobalState): Promise<Partial<G
             // ad_account_name: ... (from A3 via state)
             campaign_id: row.campaign_id,
             campaign_name: row.campaign_name,
-            adset_id: row.adset_id,
-            adset_name: row.adset_name,
-            ad_id: row.ad_id,
-            ad_name: row.ad_name,
+            adset_id: row.adset_id || null, // Optional if campaign level
+            adset_name: row.adset_name || null,
+            ad_id: row.ad_id || null, // Optional if campaign level
+            ad_name: row.ad_name || null,
             date_start: row.date_start,
             hour: isNaN(hour) ? 0 : hour,
             spend,
@@ -160,19 +160,25 @@ export const SupabaseIngestAgent = async (state: GlobalState): Promise<Partial<G
     }
 
     // 3. Process Granular Hourly Data (New Table)
-    const chunkSize = 500;
     let inserted = 0;
-    for (let i = 0; i < rows.length; i += chunkSize) {
-        const chunk = rows.slice(i, i + chunkSize);
-        const { error } = await supabaseAdmin
-            .from('facebook_ads_insights')
-            .upsert(chunk, { onConflict: 'ad_id,date_start,hour' });
+    // ONLY if we have ad-level data (skipped for 'maximum' preset optimization)
+    if (rows.length > 0 && rows[0].ad_id) {
+        const chunkSize = 500;
+        for (let i = 0; i < rows.length; i += chunkSize) {
+            const chunk = rows.slice(i, i + chunkSize);
+            const { error } = await supabaseAdmin
+                .from('facebook_ads_insights')
+                .upsert(chunk, { onConflict: 'ad_id,date_start,hour' });
 
-        if (error) {
-            console.error("A6 Hourly Write Error:", error);
-            return { write_status: { success: false, inserted_count: inserted, error: error.message } };
+            if (error) {
+                console.error("A6 Hourly Write Error:", error);
+                // Non-critical, we can continue as daily metrics are main source
+                // return { write_status: { success: false, inserted_count: inserted, error: error.message } };
+            }
+            inserted += chunk.length;
         }
-        inserted += chunk.length;
+    } else {
+        console.log("   -> Skipping Hourly/Ad-Level Write (Campaign Level Sync or Empty)");
     }
 
     // Update Account Last Synced
