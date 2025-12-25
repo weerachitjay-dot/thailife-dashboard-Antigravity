@@ -19,7 +19,7 @@ export async function POST(request: Request) {
         // Find token first to be safe
         const { data: token } = await supabaseAdmin
             .from('facebook_tokens')
-            .select('id')
+            .select('id, encrypted_access_token')
             .eq('user_id', userId)
             .single();
 
@@ -47,7 +47,36 @@ export async function POST(request: Request) {
             return NextResponse.json({ success: false, error: 'Account not found or access denied' }, { status: 404 });
         }
 
-        return NextResponse.json({ success: true, selected: accountId });
+        // 4. TRIGGER 10-AGENT SYNC PIPELINE (Immediate Feedback)
+        console.log("🚀 Triggering immediate sync for selected account:", accountId);
+
+        // We need the decrypted token for the orchestrator
+        const { decryptToken } = await import('@/utils/crypto');
+        const accessToken = decryptToken(token.encrypted_access_token);
+
+        const { AgentOrchestrator } = await import('@/agents/orchestrator');
+
+        const orchestrator = new AgentOrchestrator({
+            config: {
+                userId: userId,
+                accessToken: accessToken,
+                ad_account_id: accountId,
+                date_range: { start: 'last_30d', end: 'today', cycle_type: 'campaign' }
+            }
+        });
+
+        // Run async (fire and forget to return response fast, OR await if we want to guarantee data?)
+        // User expects data immediately. Await it. (Vercel timeout risk, but acceptable for MVP 1-account sync)
+        try {
+            const finalState = await orchestrator.run();
+            if (!finalState.write_status?.success) {
+                console.error("Sync partial failure:", finalState.errors);
+            }
+        } catch (syncErr) {
+            console.error("Sync Validation Failed:", syncErr);
+        }
+
+        return NextResponse.json({ success: true, selected: accountId, synced: true });
 
     } catch (error: any) {
         return NextResponse.json({ success: false, error: error.message }, { status: 500 });

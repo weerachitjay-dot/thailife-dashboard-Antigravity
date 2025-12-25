@@ -33,7 +33,8 @@ create table accounts (
   is_active boolean default true, -- FB status
   is_selected boolean default false, -- User selection for sync
   last_synced_at timestamp with time zone,
-  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  updated_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
 -- 3. CAMPAIGNS TABLE
