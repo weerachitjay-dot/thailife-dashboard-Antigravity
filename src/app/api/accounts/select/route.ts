@@ -1,3 +1,4 @@
+
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/utils/supabase/admin';
 
@@ -5,17 +6,13 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
     try {
-        const { userId, accountId } = await request.json();
+        const { userId, accountId, syncDays } = await request.json(); // syncDays: number (e.g. 30, 90)
 
         if (!userId || !accountId) {
             return NextResponse.json({ success: false, error: 'Missing userId or accountId' }, { status: 400 });
         }
 
         // 1. Verify User Token
-        // Ideally we should verify the user owns the token that owns the account, 
-        // but for MVCP we can rely on RLS logic or simplified join. 
-        // Let's reset all accounts for this user's token first to ensure single selection.
-
         // Find token first to be safe
         const { data: token } = await supabaseAdmin
             .from('facebook_tokens')
@@ -43,12 +40,11 @@ export async function POST(request: Request) {
 
         if (error) throw error;
         if (!data || data.length === 0) {
-            // Rollback? No transaction here easily without RPC, but rare case.
             return NextResponse.json({ success: false, error: 'Account not found or access denied' }, { status: 404 });
         }
 
         // 4. TRIGGER 10-AGENT SYNC PIPELINE (Immediate Feedback)
-        console.log("🚀 Triggering immediate sync for selected account:", accountId);
+        console.log("🚀 Triggering immediate sync for selected account:", accountId, "Days:", syncDays || 30);
 
         // We need the decrypted token for the orchestrator
         const { decryptToken } = await import('@/utils/crypto');
@@ -56,12 +52,15 @@ export async function POST(request: Request) {
 
         const { AgentOrchestrator } = await import('@/agents/orchestrator');
 
+        // Parse Sync Range
+        const dateStart = syncDays ? `last_${syncDays}d` : 'last_30d';
+
         const orchestrator = new AgentOrchestrator({
             config: {
                 userId: userId,
                 accessToken: accessToken,
                 ad_account_id: accountId,
-                date_range: { start: 'last_30d', end: 'today', cycle_type: 'campaign' }
+                date_range: { start: dateStart, end: 'today', cycle_type: 'campaign' }
             }
         });
 
