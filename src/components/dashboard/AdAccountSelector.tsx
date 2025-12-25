@@ -61,6 +61,30 @@ export default function AdAccountSelector({ userId, onSelect }: { userId: string
         }
     };
 
+    const handleRefresh = async () => {
+        setLoading(true);
+        try {
+            const res = await fetch('/api/accounts/refresh', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId })
+            });
+            const data = await res.json();
+            if (data.success && Array.isArray(data.accounts)) {
+                setAccounts(data.accounts);
+                router.refresh();
+            } else {
+                console.error("Refresh failed:", data.error);
+                alert("Could not fetch accounts: " + (data.error || "Unknown error"));
+            }
+        } catch (e) {
+            console.error("Refresh error", e);
+            alert("Refresh failed. Please check console.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
     if (loading) return <div className="text-sm text-gray-500 animate-pulse">Loading accounts...</div>;
 
     if (accounts.length === 0) {
@@ -68,8 +92,16 @@ export default function AdAccountSelector({ userId, onSelect }: { userId: string
             <Card className="max-w-md mx-auto mt-10 text-center">
                 <CardHeader>
                     <CardTitle>No Ad Accounts Found</CardTitle>
-                    <CardDescription>Please connect your Facebook account to continue.</CardDescription>
+                    <CardDescription>
+                        We verified your connection, but no Ad Accounts were returned.
+                        If you recently added permissions, try refreshing.
+                    </CardDescription>
                 </CardHeader>
+                <CardContent>
+                    <Button onClick={handleRefresh} variant="outline" className="gap-2">
+                        <span className={loading ? "animate-spin" : ""}>↻</span> Refresh Ad Accounts
+                    </Button>
+                </CardContent>
             </Card>
         );
     }
